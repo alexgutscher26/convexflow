@@ -190,6 +190,7 @@ class AIPromptReq(BaseModel):
     ] = "feature_implementation"
     focus_node_ids: list[str] = Field(default_factory=list)
     extra_instructions: str = ""
+    link_prior_prompts: bool = True
 
 
 class ExportReq(BaseModel):
@@ -702,7 +703,14 @@ def _llm() -> LlmChat:
         system_message=(
             "You are CortexFlow's architecture co-pilot. You help senior "
             "engineers design AI-native software. Output crisp, technical "
-            "markdown. Avoid fluff and disclaimers. Use code fences for code."
+            "markdown. Avoid fluff and disclaimers. Use code fences for code.\n\n"
+            "When the user provides project context (graph nodes, prior "
+            "prompts, repository metadata), treat it as authoritative:\n"
+            "- Do not contradict decisions already encoded in the graph.\n"
+            "- Do not duplicate scope already covered by prior prompts.\n"
+            "- Cite node titles when referencing existing components.\n"
+            "- If extending a prior prompt, build on it explicitly; if "
+            "  overriding, call out the change."
         ),
     ).with_model("anthropic", CLAUDE_MODEL)
 
@@ -797,6 +805,31 @@ async def ai_generate_prompt(
         for n in nodes:
             referenced_files.extend(n.get("file_references", []) or [])
 
+    # Prior prompt snapshots so the new prompt threads on previous decisions.
+    prior_prompts: list[dict] = []
+    if req.link_prior_prompts:
+        prior_snaps = await db.snapshots.find(
+            {"project_id": project_id, "kind": "prompt"}, {"_id": 0}
+        ).sort("created_at", -1).to_list(3)
+        for s in prior_snaps:
+            meta = s.get("metadata") or {}
+            text = meta.get("prompt_text") or ""
+            prior_prompts.append({
+                "label": s.get("label"),
+                "template": meta.get("prompt_template"),
+                "extra_instructions": meta.get("extra_instructions"),
+                "created_at": s.get("created_at"),
+                "prompt_excerpt": text[:1500],
+                "prompt_truncated": len(text) > 1500,
+            })
+
+    # Also surface any saved Prompt Output nodes — they are graph-pinned
+    # versions of past prompts and live in the canvas itself.
+    saved_prompt_nodes = [
+        {"title": n.get("title"), "content_excerpt": (n.get("content") or "")[:1200]}
+        for n in (by_type.get("Prompt Output") or [])
+    ]
+
     context = {
         "project": {"name": project["name"], "description": project["description"]},
         "stack": frameworks,
@@ -807,8 +840,10 @@ async def ai_generate_prompt(
         "referenced_files": sorted(set(referenced_files)),
         "nodes_by_type": {
             t: [{"title": n["title"], "content": n["content"]} for n in items]
-            for t, items in by_type.items()
+            for t, items in by_type.items() if t != "Prompt Output"
         },
+        "saved_prompt_nodes_on_canvas": saved_prompt_nodes,
+        "prior_prompts": prior_prompts,
         "edge_count": len(edges),
     }
 
@@ -983,6 +1018,20 @@ async def export_project(
         {"export_format": "markdown", "export_content": markdown},
     )
     return {"format": "markdown", "content": markdown}
+
+
+@api.get("/projects/{project_id}/prompt-history-count")
+async def prompt_history_count(
+    project_id: str, user: dict = Depends(get_current_user)
+):
+    await assert_project_owner(project_id, user["id"])
+    count = await db.snapshots.count_documents(
+        {"project_id": project_id, "kind": "prompt"}
+    )
+    saved = await db.nodes.count_documents(
+        {"project_id": project_id, "type": "Prompt Output"}
+    )
+    return {"prior_prompts": count, "saved_prompt_nodes": saved}
 
 
 # ---------- snapshots / history / diff ----------

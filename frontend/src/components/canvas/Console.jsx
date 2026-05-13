@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import {
@@ -7,6 +7,7 @@ import {
   CopySimple,
   CaretDown,
   CaretUp,
+  LinkSimple,
 } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 
@@ -35,6 +36,19 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated }) {
   const [loading, setLoading] = useState(false);
   const [savingNode, setSavingNode] = useState(false);
   const [outputKind, setOutputKind] = useState(""); // "prompt" | "export"
+  const [linkPrior, setLinkPrior] = useState(true);
+  const [historyCount, setHistoryCount] = useState({
+    prior_prompts: 0,
+    saved_prompt_nodes: 0,
+  });
+
+  useEffect(() => {
+    if (!projectId) return;
+    api
+      .get(`/projects/${projectId}/prompt-history-count`)
+      .then((r) => setHistoryCount(r.data))
+      .catch(() => {});
+  }, [projectId, output]); // refresh after each generation
 
   const generate = async () => {
     setLoading(true);
@@ -47,11 +61,16 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated }) {
           template,
           focus_node_ids: selectedNodeIds,
           extra_instructions: extra,
+          link_prior_prompts: linkPrior,
         },
       );
       setOutput(data.prompt);
       setOutputKind("prompt");
-      toast.success("Prompt generated");
+      toast.success(
+        linkPrior && historyCount.prior_prompts > 0
+          ? `Prompt generated · threaded ${historyCount.prior_prompts} prior`
+          : "Prompt generated",
+      );
     } catch (e) {
       toast.error(e.response?.data?.detail || "Generation failed");
     } finally {
@@ -239,6 +258,27 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated }) {
                     ? `${selectedNodeIds.length} selected node(s)`
                     : "all nodes"}
                 </div>
+                <label
+                  className="flex items-start gap-2 mt-3 text-[10px] cursor-pointer select-none"
+                  data-testid="link-prior-toggle"
+                >
+                  <input
+                    type="checkbox"
+                    checked={linkPrior}
+                    onChange={(e) => setLinkPrior(e.target.checked)}
+                    className="mt-0.5 accent-emerald-500"
+                  />
+                  <span>
+                    <span className="font-bold flex items-center gap-1">
+                      <LinkSimple size={10} weight="bold" /> THREAD PRIOR PROMPTS
+                    </span>
+                    <span className="text-cf-mute block leading-snug">
+                      {historyCount.prior_prompts > 0 || historyCount.saved_prompt_nodes > 0
+                        ? `${historyCount.prior_prompts} prior prompt${historyCount.prior_prompts === 1 ? "" : "s"}${historyCount.saved_prompt_nodes > 0 ? ` + ${historyCount.saved_prompt_nodes} saved on canvas` : ""} will be passed as context so the new prompt stays consistent.`
+                        : "No prior prompts yet — this toggle becomes useful after your first generation."}
+                    </span>
+                  </span>
+                </label>
                 <button
                   onClick={generate}
                   disabled={loading}

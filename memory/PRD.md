@@ -68,6 +68,21 @@ After v1 ship, user uploaded the **Archon PRD** (a near-identical product spec).
 - **Manual checkpoints**: `+ SNAPSHOT` button in canvas header opens a label prompt → stores a `manual` snapshot
 - Backend endpoints: `POST/GET /projects/{id}/snapshots`, `GET/DELETE /snapshots/{id}`, `GET /snapshots/{a}/diff/{b}`
 - **Diff algorithm** (server-side): node added/removed by id; node modified detected on type/title/content/file_references; edges keyed by `source|target|relationship_type`
+- **Prompt replay log**: every snapshot of kind=prompt stores `prompt_template`, `prompt_text`, `extra_instructions`, `focus_node_ids`
+- **History page** at `/app/project/:id/history`: chronological snapshot list, 2-checkbox compare flow, side-by-side diff view with line-by-line LCS content diff
+
+### v5 (Feb 2026, day 1 — Prompt threading)
+- **Prompt threading**: every new prompt generation now reads (a) the full current graph, (b) up to 3 most recent prior prompt snapshots from `snapshots`, and (c) any `Prompt Output` nodes saved on canvas
+- Hardened system prompt instructs Claude to not contradict prior decisions, not duplicate scope, and cite specific node titles
+- `link_prior_prompts` flag (default true) lets users opt out per generation
+- `GET /api/projects/{id}/prompt-history-count` exposes `{prior_prompts, saved_prompt_nodes}` so the console UI shows live context counters
+- Console: new `THREAD PRIOR PROMPTS` checkbox + counter ("2 prior prompts will be passed as context so the new prompt stays consistent")
+- AI Expand also pulls saved Prompt Output nodes for node-level grounding
+- Verified live: 2nd prompt textually carries 1st prompt's constraints ("One subscription per workspace", "Stripe Customer Portal") under a header `Key business rules` plus a `Billing endpoints (from prior implementation):` section — proving threading works
+- **Snapshots collection**: every prompt generation and every export auto-creates a snapshot with `{kind, label, nodes_data, edges_data, metadata}` (full frozen graph + prompt text or export content)
+- **Manual checkpoints**: `+ SNAPSHOT` button in canvas header opens a label prompt → stores a `manual` snapshot
+- Backend endpoints: `POST/GET /projects/{id}/snapshots`, `GET/DELETE /snapshots/{id}`, `GET /snapshots/{a}/diff/{b}`
+- **Diff algorithm** (server-side): node added/removed by id; node modified detected on type/title/content/file_references; edges keyed by `source|target|relationship_type`
 - **Prompt replay log**: every snapshot of kind=prompt stores `prompt_template`, `prompt_text`, `extra_instructions`, `focus_node_ids` — clicking it shows the full markdown prompt + which nodes were focused
 - **Export replay log**: kind=export snapshots store `export_format` + `export_content`
 - **History page** (`/app/project/:id/history`): chronological list with kind badges (MANUAL / PROMPT / EXPORT), 2-checkbox compare flow, COMPARE button → diff view
