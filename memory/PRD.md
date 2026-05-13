@@ -63,6 +63,18 @@ After v1 ship, user uploaded the **Archon PRD** (a near-identical product spec).
 - Frontend create-project modal exposes a 2×2 template grid below project-type picker
 - Time-to-first-prompt collapses to <60s for users who pick a template
 
+### v4 (Feb 2026, day 1 — Snapshots: prompt replay + diff viewer)
+- **Snapshots collection**: every prompt generation and every export auto-creates a snapshot with `{kind, label, nodes_data, edges_data, metadata}` (full frozen graph + prompt text or export content)
+- **Manual checkpoints**: `+ SNAPSHOT` button in canvas header opens a label prompt → stores a `manual` snapshot
+- Backend endpoints: `POST/GET /projects/{id}/snapshots`, `GET/DELETE /snapshots/{id}`, `GET /snapshots/{a}/diff/{b}`
+- **Diff algorithm** (server-side): node added/removed by id; node modified detected on type/title/content/file_references; edges keyed by `source|target|relationship_type`
+- **Prompt replay log**: every snapshot of kind=prompt stores `prompt_template`, `prompt_text`, `extra_instructions`, `focus_node_ids` — clicking it shows the full markdown prompt + which nodes were focused
+- **Export replay log**: kind=export snapshots store `export_format` + `export_content`
+- **History page** (`/app/project/:id/history`): chronological list with kind badges (MANUAL / PROMPT / EXPORT), 2-checkbox compare flow, COMPARE button → diff view
+- **Diff view**: side-by-side before/after header, 5-stat grid (nodes +/−/~, edges +/−), per-modified-node panel with title diff (strikethrough), line-by-line LCS content diff highlighting added/removed lines, edges added/removed with relationship-colored arrows, file-reference diff
+- `/app/frontend/src/lib/diff.js` implements LCS-based line diff
+- `HISTORY` link added to canvas header beside `SNAPSHOT`, `FIT`, and `⌘K`
+
 ## Prioritized backlog (P0/P1/P2)
 
 ### Deferred from Archon PRD (post-MVP)

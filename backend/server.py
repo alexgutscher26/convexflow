@@ -196,6 +196,52 @@ class ExportReq(BaseModel):
     format: Literal["markdown", "json", "agent_pack"] = "markdown"
 
 
+class SnapshotCreate(BaseModel):
+    label: str = Field(min_length=1, max_length=120)
+
+
+async def _capture_snapshot(
+    project_id: str,
+    kind: Literal["manual", "prompt", "export"],
+    label: str,
+    metadata: Optional[dict] = None,
+) -> dict:
+    """Freeze the current graph state into a snapshot document."""
+    nodes = await db.nodes.find(
+        {"project_id": project_id}, {"_id": 0}
+    ).to_list(2000)
+    edges = await db.edges.find(
+        {"project_id": project_id}, {"_id": 0}
+    ).to_list(5000)
+    snap = {
+        "id": new_id(),
+        "project_id": project_id,
+        "kind": kind,
+        "label": label,
+        "created_at": now_iso(),
+        "nodes_data": nodes,
+        "edges_data": edges,
+        "metadata": metadata or {},
+    }
+    await db.snapshots.insert_one(snap)
+    snap.pop("_id", None)
+    return snap
+
+
+def _summarize_snapshot(snap: dict) -> dict:
+    """Return list-view summary without the heavy graph data."""
+    return {
+        "id": snap["id"],
+        "project_id": snap["project_id"],
+        "kind": snap["kind"],
+        "label": snap["label"],
+        "created_at": snap["created_at"],
+        "nodes_count": len(snap.get("nodes_data") or []),
+        "edges_count": len(snap.get("edges_data") or []),
+        "metadata": snap.get("metadata") or {},
+    }
+
+
 # ---------- auth ----------
 @api.post("/auth/register", response_model=TokenResp)
 async def register(req: RegisterReq):
@@ -797,6 +843,20 @@ async def ai_generate_prompt(
     except Exception as e:
         log.exception("AI prompt generation failed")
         raise HTTPException(status_code=502, detail=f"AI error: {e}")
+
+    # Auto-snapshot: capture the graph + the generated prompt for replay.
+    await _capture_snapshot(
+        project_id,
+        "prompt",
+        f"Prompt · {req.template.replace('_', ' ')}",
+        {
+            "prompt_template": req.template,
+            "prompt_text": reply,
+            "extra_instructions": req.extra_instructions,
+            "focus_node_ids": req.focus_node_ids,
+        },
+    )
+
     return {"prompt": reply, "template": req.template}
 
 
@@ -842,7 +902,7 @@ async def export_project(
     ).to_list(5000)
 
     if req.format == "json":
-        return {
+        result = {
             "format": "json",
             "content": {
                 "project": {
@@ -854,6 +914,11 @@ async def export_project(
                 "edges": edges,
             },
         }
+        await _capture_snapshot(
+            project_id, "export", "Export · json",
+            {"export_format": "json", "export_content": result["content"]},
+        )
+        return result
 
     # markdown / agent_pack share a base
     lines: list[str] = []
@@ -907,9 +972,140 @@ async def export_project(
             "and conventions. Reference linked files when implementing.\n\n"
             + markdown
         )
+        await _capture_snapshot(
+            project_id, "export", "Export · agent_pack",
+            {"export_format": "agent_pack", "export_content": agent_pack},
+        )
         return {"format": "agent_pack", "content": agent_pack}
 
+    await _capture_snapshot(
+        project_id, "export", "Export · markdown",
+        {"export_format": "markdown", "export_content": markdown},
+    )
     return {"format": "markdown", "content": markdown}
+
+
+# ---------- snapshots / history / diff ----------
+@api.post("/projects/{project_id}/snapshots")
+async def manual_snapshot(
+    project_id: str,
+    req: SnapshotCreate,
+    user: dict = Depends(get_current_user),
+):
+    await assert_project_owner(project_id, user["id"])
+    snap = await _capture_snapshot(project_id, "manual", req.label, {})
+    return _summarize_snapshot(snap)
+
+
+@api.get("/projects/{project_id}/snapshots")
+async def list_snapshots(
+    project_id: str, user: dict = Depends(get_current_user)
+):
+    await assert_project_owner(project_id, user["id"])
+    items = await db.snapshots.find(
+        {"project_id": project_id}, {"_id": 0, "nodes_data": 0, "edges_data": 0}
+    ).sort("created_at", -1).to_list(500)
+    return [_summarize_snapshot({**i, "nodes_data": [], "edges_data": []}) | {
+        "nodes_count": i.get("metadata", {}).get("_nodes_count", 0),
+        "edges_count": i.get("metadata", {}).get("_edges_count", 0),
+    } for i in items]
+
+
+@api.get("/snapshots/{snapshot_id}")
+async def get_snapshot(snapshot_id: str, user: dict = Depends(get_current_user)):
+    snap = await db.snapshots.find_one({"id": snapshot_id}, {"_id": 0})
+    if not snap:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    await assert_project_owner(snap["project_id"], user["id"])
+    return snap
+
+
+@api.delete("/snapshots/{snapshot_id}")
+async def delete_snapshot(
+    snapshot_id: str, user: dict = Depends(get_current_user)
+):
+    snap = await db.snapshots.find_one({"id": snapshot_id}, {"_id": 0})
+    if not snap:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    await assert_project_owner(snap["project_id"], user["id"])
+    await db.snapshots.delete_one({"id": snapshot_id})
+    return {"ok": True}
+
+
+def _diff_graphs(a_nodes: list[dict], a_edges: list[dict],
+                 b_nodes: list[dict], b_edges: list[dict]) -> dict:
+    a_node_idx = {n["id"]: n for n in a_nodes}
+    b_node_idx = {n["id"]: n for n in b_nodes}
+    added_nodes = [b_node_idx[i] for i in b_node_idx if i not in a_node_idx]
+    removed_nodes = [a_node_idx[i] for i in a_node_idx if i not in b_node_idx]
+    modified_nodes = []
+    for nid in a_node_idx.keys() & b_node_idx.keys():
+        a_n, b_n = a_node_idx[nid], b_node_idx[nid]
+        changed_fields = []
+        for f in ("type", "title", "content"):
+            if (a_n.get(f) or "") != (b_n.get(f) or ""):
+                changed_fields.append(f)
+        ref_a = set(a_n.get("file_references") or [])
+        ref_b = set(b_n.get("file_references") or [])
+        if ref_a != ref_b:
+            changed_fields.append("file_references")
+        if changed_fields:
+            modified_nodes.append({
+                "id": nid,
+                "type": b_n.get("type"),
+                "title_before": a_n.get("title"),
+                "title_after": b_n.get("title"),
+                "content_before": a_n.get("content", ""),
+                "content_after": b_n.get("content", ""),
+                "file_references_before": sorted(ref_a),
+                "file_references_after": sorted(ref_b),
+                "changed_fields": changed_fields,
+            })
+
+    def edge_key(e):
+        return f"{e['source_node_id']}|{e['target_node_id']}|{e.get('relationship_type', 'depends_on')}"
+
+    a_edge_keys = {edge_key(e): e for e in a_edges}
+    b_edge_keys = {edge_key(e): e for e in b_edges}
+    added_edges = [b_edge_keys[k] for k in b_edge_keys if k not in a_edge_keys]
+    removed_edges = [a_edge_keys[k] for k in a_edge_keys if k not in b_edge_keys]
+
+    return {
+        "added_nodes": added_nodes,
+        "removed_nodes": removed_nodes,
+        "modified_nodes": modified_nodes,
+        "added_edges": added_edges,
+        "removed_edges": removed_edges,
+        "summary": {
+            "nodes_added": len(added_nodes),
+            "nodes_removed": len(removed_nodes),
+            "nodes_modified": len(modified_nodes),
+            "edges_added": len(added_edges),
+            "edges_removed": len(removed_edges),
+        },
+    }
+
+
+@api.get("/snapshots/{a_id}/diff/{b_id}")
+async def diff_snapshots(
+    a_id: str, b_id: str, user: dict = Depends(get_current_user)
+):
+    a = await db.snapshots.find_one({"id": a_id}, {"_id": 0})
+    b = await db.snapshots.find_one({"id": b_id}, {"_id": 0})
+    if not a or not b:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    if a["project_id"] != b["project_id"]:
+        raise HTTPException(status_code=400, detail="Snapshots from different projects")
+    await assert_project_owner(a["project_id"], user["id"])
+    diff = _diff_graphs(
+        a.get("nodes_data") or [], a.get("edges_data") or [],
+        b.get("nodes_data") or [], b.get("edges_data") or [],
+    )
+    return {
+        "before": {"id": a["id"], "label": a["label"], "kind": a["kind"], "created_at": a["created_at"]},
+        "after": {"id": b["id"], "label": b["label"], "kind": b["kind"], "created_at": b["created_at"]},
+        "diff": diff,
+    }
 
 
 # ---------- meta ----------

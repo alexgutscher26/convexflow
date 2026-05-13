@@ -19,6 +19,8 @@ import {
   Command,
   CheckCircle,
   CircleNotch,
+  Camera,
+  ClockCounterClockwise,
 } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import { NODE_TYPE_MAP, EDGE_RELATIONSHIPS, EDGE_REL_MAP } from "@/lib/nodeTypes";
@@ -415,6 +417,36 @@ function CanvasInner() {
           <span>·</span>
           <span data-testid="edges-count">{edges.length} EDGES</span>
           <span>·</span>
+          <button
+            onClick={async () => {
+              const label = window.prompt(
+                "Snapshot label (optional)",
+                `Checkpoint · ${new Date().toLocaleString()}`,
+              );
+              if (label === null) return;
+              try {
+                await api.post(`/projects/${projectId}/snapshots`, {
+                  label: label.trim() || `Checkpoint · ${new Date().toISOString()}`,
+                });
+                toast.success("Snapshot saved");
+              } catch (e) {
+                toast.error("Snapshot failed");
+              }
+            }}
+            className="cf-btn border border-cf-line px-2 py-1 hover:bg-cf-elev text-cf-dim hover:text-cf-text transition-colors flex items-center gap-1"
+            data-testid="snapshot-button"
+            title="Save snapshot (manual checkpoint)"
+          >
+            <Camera size={10} /> SNAPSHOT
+          </button>
+          <Link
+            to={`/app/project/${projectId}/history`}
+            className="cf-btn border border-cf-line px-2 py-1 hover:bg-cf-elev text-cf-dim hover:text-cf-text transition-colors flex items-center gap-1"
+            data-testid="history-link"
+            title="View history & diffs"
+          >
+            <ClockCounterClockwise size={10} /> HISTORY
+          </Link>
           <button
             onClick={() => fitViewRef.current?.()}
             className="cf-btn border border-cf-line px-2 py-1 hover:bg-cf-elev text-cf-dim hover:text-cf-text transition-colors"
