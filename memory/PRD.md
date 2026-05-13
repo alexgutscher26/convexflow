@@ -80,7 +80,16 @@ After v1 ship, user uploaded the **Archon PRD** (a near-identical product spec).
 - AI Expand also pulls saved Prompt Output nodes for node-level grounding
 - LLM error mapper: budget_exceeded → 402, rate-limit → 429, context too large → 413, timeout → 504 — sticky toast surfaces "Profile → Universal Key → Add Balance"
 
-### v6 (Feb 2026, day 1 — Node validation engine)
+### v7 (Feb 2026, day 1 — Quick-start wizard)
+- New `/app/backend/wizard.py` deterministically builds a tailored starter graph from 7 inputs: `name`, `description`, `project_kind`, `stack[]`, `features[]`, `team_size`, `ai_tools[]`, `deployment`
+- Conditional node seeding: DB Schema only when stack implies persistence or `project_kind ∈ {saas_app, api_service, mobile_app}`; UI Requirements only for client-facing kinds; Deployment node skipped when user picks "Not yet"
+- One Feature Scope + one Acceptance Criteria pair per feature (max 4), all wired with typed edges
+- AI Coding Rules content branches on selected AI tools (Cursor/Claude Code adds linked-file directive, Copilot adds explicit-imports directive, autonomous agents add halt-on-fail + PR-only directive)
+- Testing Instructions depth scales with team size (solo = smoke-test, small = unit+E2E, large = full pyramid)
+- Backend endpoint: `POST /api/wizard/generate` creates project + bulk-seeds nodes & edges atomically; stores `wizard_answers` on the project doc
+- Frontend `Wizard.jsx` at `/app/wizard`: 6-step linear form with progress bar, chip multi-select for stack + AI tools, radio for kind/team/deploy, expandable feature list (max 4), **live preview sidebar showing the exact node list that will be seeded**
+- Dashboard now has `QUICK START WIZARD` button next to `NEW PROJECT`
+- Verified live: 7 answers → 12 nodes + 16 typed edges seeded → validation engine returns `ready_for_prompt: true · 0 errors · 0 warnings · 0 infos`
 - New `/app/backend/validation.py` with 8 graph rules: no_product_overview, no_coding_rules, disconnected_node, feature_without_acceptance, feature_without_arch, api_without_schema, schema_without_consumer, acceptance_without_feature, arch_without_impl, empty_content
 - `POST /api/projects/{id}/validate` returns `{issues:[{node_id, severity, code, message, suggestion}], summary:{error_count, warning_count, info_count, total, ready_for_prompt}}`
 - `ValidationPanel.jsx` slides in from the right (swaps with Inspector), shows tile stats + color-coded issue list — clicking jumps to the node

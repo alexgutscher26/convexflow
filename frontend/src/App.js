@@ -7,6 +7,7 @@ import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import CanvasPage from "@/pages/CanvasPage";
 import HistoryPage from "@/pages/HistoryPage";
+import Wizard from "@/pages/Wizard";
 import "@/App.css";
 
 function Protected({ children }) {
@@ -49,6 +50,14 @@ export default function App() {
             element={
               <Protected>
                 <Dashboard />
+              </Protected>
+            }
+          />
+          <Route
+            path="/app/wizard"
+            element={
+              <Protected>
+                <Wizard />
               </Protected>
             }
           />

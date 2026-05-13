@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, SignOut, Trash, Graph } from "@phosphor-icons/react";
+import { Plus, SignOut, Trash, Graph, Sparkle } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -120,6 +120,13 @@ export default function Dashboard() {
           >
             <Plus size={16} weight="bold" /> NEW PROJECT
           </button>
+          <Link
+            to="/app/wizard"
+            className="cf-btn border border-amber-700 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 px-5 py-3 font-bold transition-colors flex items-center gap-2"
+            data-testid="quick-start-button"
+          >
+            <Sparkle size={16} weight="fill" /> QUICK START WIZARD
+          </Link>
         </div>
 
         {loading ? (

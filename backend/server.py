@@ -25,6 +25,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from templates import TEMPLATES, TEMPLATE_META
 from validation import validate_graph
+from wizard import build_wizard_graph
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -346,6 +347,78 @@ async def create_project(req: ProjectCreate, user: dict = Depends(get_current_us
 @api.get("/templates")
 async def list_templates():
     return {"templates": [{"id": "blank", "label": "Blank", "description": "Empty canvas — build from scratch."}] + TEMPLATE_META}
+
+
+class WizardReq(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = Field(min_length=1, max_length=120)
+    description: str = ""
+    project_kind: Literal[
+        "saas_app", "web_app", "api_service", "cli_tool", "mobile_app", "ai_ml"
+    ] = "saas_app"
+    stack: list[str] = Field(default_factory=list)
+    features: list[str] = Field(default_factory=list)
+    team_size: Literal["solo", "small", "large"] = "solo"
+    ai_tools: list[str] = Field(default_factory=list)
+    deployment: Literal["vercel", "aws", "docker", "fly", "railway", "none"] = "vercel"
+
+
+@api.post("/wizard/generate")
+async def wizard_generate(req: WizardReq, user: dict = Depends(get_current_user)):
+    project_id = new_id()
+    doc = {
+        "id": project_id,
+        "name": req.name,
+        "description": req.description,
+        "project_type": "greenfield",
+        "template": "wizard",
+        "owner_id": user["id"],
+        "repository": None,
+        "wizard_answers": req.model_dump(),
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    await db.projects.insert_one(doc)
+
+    graph = build_wizard_graph(req.model_dump())
+    ref_to_id: dict[str, str] = {}
+    node_docs = []
+    for n in graph["nodes"]:
+        nid = new_id()
+        ref_to_id[n["ref"]] = nid
+        node_docs.append({
+            "id": nid,
+            "project_id": project_id,
+            "type": n["type"],
+            "title": n["title"],
+            "content": n["content"],
+            "position_x": n["x"],
+            "position_y": n["y"],
+            "metadata": {"from_wizard": True},
+            "file_references": [],
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        })
+    if node_docs:
+        await db.nodes.insert_many(node_docs)
+
+    edge_docs = []
+    for src_ref, tgt_ref, rel in graph["edges"]:
+        if src_ref not in ref_to_id or tgt_ref not in ref_to_id:
+            continue
+        edge_docs.append({
+            "id": new_id(),
+            "project_id": project_id,
+            "source_node_id": ref_to_id[src_ref],
+            "target_node_id": ref_to_id[tgt_ref],
+            "relationship_type": rel,
+            "created_at": now_iso(),
+        })
+    if edge_docs:
+        await db.edges.insert_many(edge_docs)
+
+    doc.pop("_id", None)
+    return doc
 
 
 @api.get("/projects/{project_id}")
