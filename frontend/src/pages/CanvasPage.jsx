@@ -21,6 +21,7 @@ import {
   CircleNotch,
   Camera,
   ClockCounterClockwise,
+  Warning,
 } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import { NODE_TYPE_MAP, EDGE_RELATIONSHIPS, EDGE_REL_MAP } from "@/lib/nodeTypes";
@@ -29,6 +30,7 @@ import Sidebar from "@/components/canvas/Sidebar";
 import Inspector from "@/components/canvas/Inspector";
 import Console from "@/components/canvas/Console";
 import CommandPalette from "@/components/canvas/CommandPalette";
+import ValidationPanel from "@/components/canvas/ValidationPanel";
 
 const nodeTypes = { cf: CustomNode };
 
@@ -86,7 +88,11 @@ function CanvasInner() {
   const [editName, setEditName] = useState(false);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
   const [pendingConn, setPendingConn] = useState(null);
+  const [validation, setValidation] = useState(null);
+  const [validationLoading, setValidationLoading] = useState(false);
+  const [rightPanel, setRightPanel] = useState("inspector"); // 'inspector' | 'validation'
   const saveStateTimer = useRef(null);
+  const validationTimer = useRef(null);
   const markSaving = useCallback(() => {
     setSaveState("saving");
     if (saveStateTimer.current) clearTimeout(saveStateTimer.current);
@@ -146,6 +152,44 @@ function CanvasInner() {
     }
   }, [projectId]);
 
+  const runValidation = useCallback(async () => {
+    setValidationLoading(true);
+    try {
+      const { data } = await api.post(`/projects/${projectId}/validate`);
+      setValidation(data);
+    } catch (e) {
+      // silently ignore
+    } finally {
+      setValidationLoading(false);
+    }
+  }, [projectId]);
+
+  const scheduleValidation = useCallback(() => {
+    if (validationTimer.current) clearTimeout(validationTimer.current);
+    validationTimer.current = setTimeout(runValidation, 800);
+  }, [runValidation]);
+
+  useEffect(() => {
+    if (!loading && project) runValidation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, project?.id]);
+
+  const issuesByNode = useMemo(() => {
+    const out = {};
+    const sevRank = { error: 3, warning: 2, info: 1 };
+    for (const i of validation?.issues || []) {
+      if (!i.node_id) continue;
+      const prev = out[i.node_id];
+      if (!prev || sevRank[i.severity] > sevRank[prev.severity]) {
+        out[i.node_id] = { severity: i.severity, count: 1 };
+      } else {
+        prev.count += 1;
+      }
+    }
+    return out;
+  }, [validation]);
+
+
   // expose fitView via ref
   const fitViewRef = useRef(null);
   const aiAssistRef = useRef(null);
@@ -183,6 +227,7 @@ function CanvasInner() {
       rfNodes.map((rn) => {
         const raw = rawNodes.find((r) => r.id === rn.id);
         if (!raw) return rn;
+        const iss = issuesByNode[raw.id];
         return {
           ...rn,
           data: {
@@ -190,11 +235,13 @@ function CanvasInner() {
             title: raw.title,
             content: raw.content,
             file_references: raw.file_references || [],
+            issueSev: iss?.severity,
+            issueCount: iss?.count,
           },
         };
       }),
     );
-  }, [rawNodes]);
+  }, [rawNodes, issuesByNode]);
 
   const onNodesChange = useCallback((changes) => {
     setNodes((nds) => applyNodeChanges(changes, nds));
@@ -238,11 +285,12 @@ function CanvasInner() {
             eds,
           ),
         );
+        scheduleValidation();
       } catch (e) {
         toast.error("Failed to connect");
       }
     },
-    [projectId],
+    [projectId, scheduleValidation],
   );
 
   const addNodeAt = useCallback(
@@ -260,11 +308,12 @@ function CanvasInner() {
         setRawNodes((rs) => [...rs, data]);
         setNodes((ns) => [...ns, toRfNode(data)]);
         setSelectedId(data.id);
+        scheduleValidation();
       } catch (e) {
         toast.error("Failed to add node");
       }
     },
-    [projectId],
+    [projectId, scheduleValidation],
   );
 
   const onDrop = useCallback(
@@ -304,10 +353,11 @@ function CanvasInner() {
       const { data } = await api.put(`/nodes/${nodeId}`, patch);
       setRawNodes((rs) => rs.map((r) => (r.id === nodeId ? data : r)));
       markSaved();
+      scheduleValidation();
     } catch (e) {
       toast.error("Failed to save");
     }
-  }, [markSaving, markSaved]);
+  }, [markSaving, markSaved, scheduleValidation]);
 
   const deleteNode = useCallback(
     async (nodeId) => {
@@ -320,6 +370,7 @@ function CanvasInner() {
           es.filter((e) => e.source !== nodeId && e.target !== nodeId),
         );
         if (selectedId === nodeId) setSelectedId(null);
+        scheduleValidation();
       } catch (e) {
         toast.error("Delete failed");
       }
@@ -417,6 +468,35 @@ function CanvasInner() {
           <span>·</span>
           <span data-testid="edges-count">{edges.length} EDGES</span>
           <span>·</span>
+          <button
+            onClick={() => setRightPanel((p) => (p === "validation" ? "inspector" : "validation"))}
+            className={`cf-btn border px-2 py-1 transition-colors flex items-center gap-1 ${
+              rightPanel === "validation"
+                ? "bg-amber-950/40 border-amber-700 text-amber-300"
+                : "border-cf-line text-cf-dim hover:bg-cf-elev hover:text-cf-text"
+            }`}
+            data-testid="validate-button"
+            title="Toggle validation panel"
+          >
+            <Warning size={10} />
+            VALIDATE
+            {validation?.summary?.total > 0 && (
+              <span
+                className="ml-1 px-1 text-[9px] font-bold"
+                style={{
+                  background:
+                    validation.summary.error_count > 0
+                      ? "#F87171"
+                      : validation.summary.warning_count > 0
+                        ? "#FBBF24"
+                        : "#60A5FA",
+                  color: "#0A0A0B",
+                }}
+              >
+                {validation.summary.total}
+              </span>
+            )}
+          </button>
           <button
             onClick={async () => {
               const label = window.prompt(
@@ -528,6 +608,8 @@ function CanvasInner() {
           <Console
             projectId={projectId}
             selectedNodeIds={selectedId ? [selectedId] : []}
+            validation={validation}
+            onShowValidation={() => setRightPanel("validation")}
             onNodeCreated={(node) => {
               setRawNodes((rs) => [...rs, node]);
               setNodes((ns) => [...ns, toRfNode(node)]);
@@ -536,13 +618,29 @@ function CanvasInner() {
           />
         </div>
 
-        <Inspector
-          node={selectedNode}
-          onChange={updateNode}
-          onDelete={deleteNode}
-          onClose={() => setSelectedId(null)}
-          aiAssistRef={aiAssistRef}
-        />
+        {rightPanel === "inspector" && (
+          <Inspector
+            node={selectedNode}
+            onChange={updateNode}
+            onDelete={deleteNode}
+            onClose={() => setSelectedId(null)}
+            aiAssistRef={aiAssistRef}
+          />
+        )}
+        {rightPanel === "validation" && (
+          <ValidationPanel
+            validation={validation}
+            loading={validationLoading}
+            nodes={rawNodes}
+            selectedNodeId={selectedId}
+            onClose={() => setRightPanel("inspector")}
+            onFocusNode={(id) => {
+              setSelectedId(id);
+              setRightPanel("inspector");
+            }}
+            onRevalidate={runValidation}
+          />
+        )}
       </div>
 
       {pendingConn && (

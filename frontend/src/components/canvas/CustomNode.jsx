@@ -11,14 +11,24 @@ function CustomNodeBase({ data, selected }) {
     content.replace(/[#*`>_-]/g, "").trim().slice(0, 110) || cfg.blurb;
   const refCount = (data.file_references || []).length;
   const complete = content.length >= 20;
+  const issueSev = data.issueSev; // 'error' | 'warning' | 'info' | undefined
+  const issueCount = data.issueCount || 0;
+  const sevColor =
+    issueSev === "error"
+      ? "#F87171"
+      : issueSev === "warning"
+        ? "#FBBF24"
+        : issueSev === "info"
+          ? "#60A5FA"
+          : null;
 
   return (
     <div
-      className="font-mono"
+      className="font-mono relative"
       style={{
         width: 260,
         background: "#0a0a0b",
-        border: `1px solid ${cfg.border}`,
+        border: `1px solid ${sevColor || cfg.border}`,
         boxShadow: selected
           ? `4px 4px 0 ${cfg.bg}`
           : "0 0 0 transparent",
@@ -39,7 +49,16 @@ function CustomNodeBase({ data, selected }) {
         <span className="text-[10px] uppercase tracking-widest font-bold">
           {cfg.short}
         </span>
-        {complete && (
+        {issueSev ? (
+          <span
+            className="ml-auto flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5"
+            style={{ background: sevColor, color: "#0A0A0B" }}
+            data-testid={`node-issue-badge-${issueSev}`}
+            title={`${issueCount} ${issueSev}${issueCount > 1 ? "s" : ""}`}
+          >
+            ⚠ {issueCount}
+          </span>
+        ) : complete ? (
           <CheckCircle
             size={11}
             weight="fill"
@@ -47,18 +66,19 @@ function CustomNodeBase({ data, selected }) {
             style={{ color: cfg.text, opacity: 0.85 }}
             data-testid="node-complete-badge"
           />
-        )}
-        {!complete && refCount > 0 && (
-          <span
-            className="ml-auto text-[9px] font-bold px-1.5 py-0.5 border"
-            style={{
-              borderColor: cfg.text,
-              color: cfg.text,
-              opacity: 0.85,
-            }}
-          >
-            {refCount}F
-          </span>
+        ) : (
+          refCount > 0 && (
+            <span
+              className="ml-auto text-[9px] font-bold px-1.5 py-0.5 border"
+              style={{
+                borderColor: cfg.text,
+                color: cfg.text,
+                opacity: 0.85,
+              }}
+            >
+              {refCount}F
+            </span>
+          )
         )}
       </div>
       <div className="p-3">

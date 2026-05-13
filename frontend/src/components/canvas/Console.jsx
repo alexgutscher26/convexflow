@@ -26,7 +26,7 @@ const EXPORTS = [
   { value: "json", label: "JSON graph" },
 ];
 
-export default function Console({ projectId, selectedNodeIds, onNodeCreated }) {
+export default function Console({ projectId, selectedNodeIds, onNodeCreated, validation, onShowValidation }) {
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState("prompt");
   const [template, setTemplate] = useState("feature_implementation");
@@ -51,6 +51,18 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated }) {
   }, [projectId, output]); // refresh after each generation
 
   const generate = async () => {
+    // Pre-flight: warn on validation errors
+    const errCount = validation?.summary?.error_count || 0;
+    const warnCount = validation?.summary?.warning_count || 0;
+    if (errCount > 0) {
+      const ok = window.confirm(
+        `Graph has ${errCount} error${errCount === 1 ? "" : "s"} and ${warnCount} warning${warnCount === 1 ? "" : "s"}.\n\nContinuing may produce a low-quality prompt. Open the VALIDATE panel to review before generating.\n\nGenerate anyway?`,
+      );
+      if (!ok) {
+        onShowValidation?.();
+        return;
+      }
+    }
     setLoading(true);
     setOutput("");
     setOutputKind("");

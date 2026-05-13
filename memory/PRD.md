@@ -78,7 +78,16 @@ After v1 ship, user uploaded the **Archon PRD** (a near-identical product spec).
 - `GET /api/projects/{id}/prompt-history-count` exposes `{prior_prompts, saved_prompt_nodes}` so the console UI shows live context counters
 - Console: new `THREAD PRIOR PROMPTS` checkbox + counter ("2 prior prompts will be passed as context so the new prompt stays consistent")
 - AI Expand also pulls saved Prompt Output nodes for node-level grounding
-- Verified live: 2nd prompt textually carries 1st prompt's constraints ("One subscription per workspace", "Stripe Customer Portal") under a header `Key business rules` plus a `Billing endpoints (from prior implementation):` section — proving threading works
+- LLM error mapper: budget_exceeded → 402, rate-limit → 429, context too large → 413, timeout → 504 — sticky toast surfaces "Profile → Universal Key → Add Balance"
+
+### v6 (Feb 2026, day 1 — Node validation engine)
+- New `/app/backend/validation.py` with 8 graph rules: no_product_overview, no_coding_rules, disconnected_node, feature_without_acceptance, feature_without_arch, api_without_schema, schema_without_consumer, acceptance_without_feature, arch_without_impl, empty_content
+- `POST /api/projects/{id}/validate` returns `{issues:[{node_id, severity, code, message, suggestion}], summary:{error_count, warning_count, info_count, total, ready_for_prompt}}`
+- `ValidationPanel.jsx` slides in from the right (swaps with Inspector), shows tile stats + color-coded issue list — clicking jumps to the node
+- `CustomNode` now renders a yellow/red/blue ⚠ badge in the header AND tints the node border to the highest-severity issue color (replaces the green ✓)
+- Canvas header: `VALIDATE [n]` button with live count badge (amber when warnings, red when errors)
+- Validation auto-reruns 800ms after any node/edge mutation, and on canvas load
+- **Pre-flight check on `GENERATE PROMPT`**: if `error_count > 0` a confirm modal pops up offering to open the validation panel
 - **Snapshots collection**: every prompt generation and every export auto-creates a snapshot with `{kind, label, nodes_data, edges_data, metadata}` (full frozen graph + prompt text or export content)
 - **Manual checkpoints**: `+ SNAPSHOT` button in canvas header opens a label prompt → stores a `manual` snapshot
 - Backend endpoints: `POST/GET /projects/{id}/snapshots`, `GET/DELETE /snapshots/{id}`, `GET /snapshots/{a}/diff/{b}`

@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from starlette.middleware.cors import CORSMiddleware
 
 from templates import TEMPLATES, TEMPLATE_META
+from validation import validate_graph
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -1052,6 +1053,20 @@ async def export_project(
         {"export_format": "markdown", "export_content": markdown},
     )
     return {"format": "markdown", "content": markdown}
+
+
+@api.post("/projects/{project_id}/validate")
+async def validate_project(
+    project_id: str, user: dict = Depends(get_current_user)
+):
+    await assert_project_owner(project_id, user["id"])
+    nodes = await db.nodes.find(
+        {"project_id": project_id}, {"_id": 0}
+    ).to_list(2000)
+    edges = await db.edges.find(
+        {"project_id": project_id}, {"_id": 0}
+    ).to_list(5000)
+    return validate_graph(nodes, edges)
 
 
 @api.get("/projects/{project_id}/prompt-history-count")
