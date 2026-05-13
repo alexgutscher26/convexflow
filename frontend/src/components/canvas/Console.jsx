@@ -72,7 +72,19 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated }) {
           : "Prompt generated",
       );
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Generation failed");
+      const status = e.response?.status;
+      const detail = e.response?.data?.detail || "Generation failed";
+      if (status === 402) {
+        toast.error(detail, {
+          duration: 12000,
+          description:
+            "Profile → Universal Key → Add Balance (or enable auto top-up)",
+        });
+      } else if (status === 413) {
+        toast.error(detail, { duration: 8000 });
+      } else {
+        toast.error(detail);
+      }
     } finally {
       setLoading(false);
     }

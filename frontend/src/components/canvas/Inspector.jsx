@@ -96,7 +96,16 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
       persist({ content: newContent });
       toast.success("AI updated content");
     } catch (e) {
-      toast.error(e.response?.data?.detail || "AI request failed");
+      const status = e.response?.status;
+      const detail = e.response?.data?.detail || "AI request failed";
+      if (status === 402) {
+        toast.error(detail, {
+          duration: 12000,
+          description: "Profile → Universal Key → Add Balance",
+        });
+      } else {
+        toast.error(detail);
+      }
     } finally {
       setAiLoading(false);
     }

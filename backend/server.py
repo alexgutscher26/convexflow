@@ -694,6 +694,40 @@ AI_INSTRUCTIONS = {
 }
 
 
+def _llm_error_to_http(e: Exception) -> HTTPException:
+    """Convert LiteLLM / emergentintegrations errors into clear HTTP responses."""
+    msg = str(e)
+    low = msg.lower()
+    if "budget" in low and "exceed" in low:
+        return HTTPException(
+            status_code=402,
+            detail=(
+                "Emergent Universal LLM key budget exhausted. "
+                "Top up at Profile → Universal Key → Add Balance "
+                "(or enable auto top-up) and retry."
+            ),
+        )
+    if "rate" in low and "limit" in low:
+        return HTTPException(
+            status_code=429,
+            detail="LLM rate limit hit. Wait a few seconds and retry.",
+        )
+    if "context" in low and ("length" in low or "window" in low or "token" in low):
+        return HTTPException(
+            status_code=413,
+            detail=(
+                "Prompt context too large for the model. Try disabling "
+                "'Thread prior prompts' or focusing on fewer nodes."
+            ),
+        )
+    if "timeout" in low or "timed out" in low:
+        return HTTPException(
+            status_code=504,
+            detail="LLM upstream timed out. Try again with a smaller context.",
+        )
+    return HTTPException(status_code=502, detail=f"AI error: {msg[:300]}")
+
+
 def _llm() -> LlmChat:
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="LLM key not configured")
@@ -774,7 +808,7 @@ async def ai_expand(req: AIExpandReq, user: dict = Depends(get_current_user)):
         raise
     except Exception as e:
         log.exception("AI expand failed")
-        raise HTTPException(status_code=502, detail=f"AI error: {e}")
+        raise _llm_error_to_http(e)
     return {"content": reply}
 
 
@@ -877,7 +911,7 @@ async def ai_generate_prompt(
         raise
     except Exception as e:
         log.exception("AI prompt generation failed")
-        raise HTTPException(status_code=502, detail=f"AI error: {e}")
+        raise _llm_error_to_http(e)
 
     # Auto-snapshot: capture the graph + the generated prompt for replay.
     await _capture_snapshot(
