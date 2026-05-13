@@ -23,6 +23,7 @@ const TEMPLATES = [
 const EXPORTS = [
   { value: "markdown", label: "Markdown PRD" },
   { value: "agent_pack", label: "Agent context pack" },
+  { value: "cursorrules", label: ".cursorrules (Cursor)" },
   { value: "json", label: "JSON graph" },
 ];
 
@@ -161,12 +162,17 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated, val
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const ext = tab === "export"
-      ? exportFmt === "json"
-        ? "json"
-        : "md"
-      : "md";
-    a.download = `cortexflow-${tab}-${Date.now()}.${ext}`;
+    if (tab === "export" && exportFmt === "cursorrules") {
+      a.download = ".cursorrules";
+    } else {
+      const ext =
+        tab === "export"
+          ? exportFmt === "json"
+            ? "json"
+            : "md"
+          : "md";
+      a.download = `cortexflow-${tab}-${Date.now()}.${ext}`;
+    }
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -329,7 +335,9 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated, val
                 </select>
                 <p className="text-[10px] text-cf-mute mt-3 leading-relaxed">
                   Markdown is best for human PRDs. Agent pack is preformatted
-                  for Cursor / Copilot. JSON preserves the full graph.
+                  for Cursor / Copilot. <span className="text-cf-text">.cursorrules</span>{" "}
+                  drops directly into your repo root so every Cursor session
+                  auto-loads the conventions. JSON preserves the full graph.
                 </p>
                 <button
                   onClick={() => exportProj()}
@@ -340,7 +348,7 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated, val
                   <Export size={11} weight="bold" />
                   {loading ? "EXPORTING..." : "GENERATE EXPORT"}
                 </button>
-                <div className="grid grid-cols-3 gap-1 mt-2">
+                <div className="grid grid-cols-2 gap-1 mt-2">
                   <button
                     onClick={() => { setExportFmt("markdown"); exportProj("markdown"); }}
                     disabled={loading}
@@ -364,6 +372,15 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated, val
                     data-testid="export-agent-pack-button"
                   >
                     AGENT
+                  </button>
+                  <button
+                    onClick={() => { setExportFmt("cursorrules"); exportProj("cursorrules"); }}
+                    disabled={loading}
+                    className="cf-btn border border-emerald-700 bg-emerald-950/40 text-emerald-300 py-1.5 text-[9px] uppercase tracking-widest font-bold hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
+                    data-testid="export-cursorrules-button"
+                    title="Drop into repo root — every Cursor session auto-loads it"
+                  >
+                    .CURSOR
                   </button>
                 </div>
               </>

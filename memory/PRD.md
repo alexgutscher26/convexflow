@@ -117,6 +117,14 @@ After v1 ship, user uploaded the **Archon PRD** (a near-identical product spec).
 - `Inspector` linked-files list highlights stale paths with strikethrough text, orange border, and a `STALE` badge — users can detach with one click
 - Verified end-to-end with `octocat/Hello-World`: attach `README` + 2 non-existent paths → refresh → 2/3 stale flagged everywhere; reset to only `README` → flags cleared
 
+### v9 (Feb 2026, day 1 — `.cursorrules` export)
+- New export format `cursorrules` added to `POST /api/projects/{id}/export`
+- Backend `_build_cursorrules()` composes a Cursor-compatible rules file: intro with `{project_name}` + detected stack, then sections for **Technical Architecture**, **Database Schema**, **API Contracts**, **Coding Rules & Conventions**, **Testing Conventions**, a deduped **Key Files** list (skips files marked stale by the rescan), and a fixed "When generating code" footer with non-contradiction directives
+- Each Cursor session in the repo auto-loads the file when dropped at root
+- Frontend: new `.CURSOR` quick-export button (emerald, 2×2 grid) + dropdown entry in the format select; download uses literal `.cursorrules` filename (no extension prefix)
+- Auto-snapshots cursorrules exports as `kind=export, label=Export · cursorrules` so they appear in history alongside MD/JSON/Agent-pack exports
+- Verified with SaaS template: 9-node graph produced a complete `.cursorrules` covering stack, schema, endpoints, conventions, and testing — drop-in ready for Cursor
+
 ## Prioritized backlog (P0/P1/P2)
 
 ### Deferred from Archon PRD (post-MVP)
