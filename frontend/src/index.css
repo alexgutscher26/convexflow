@@ -1,75 +1,51 @@
+@import url("https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    color-scheme: dark;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
 body {
     margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+        monospace;
+    background: #0a0a0b;
+    color: #fafafa;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
-}
-
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
+        --background: 240 6% 4%;
         --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
+        --card: 240 6% 7%;
         --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
+        --popover: 240 6% 7%;
         --popover-foreground: 0 0% 98%;
         --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
+        --primary-foreground: 240 6% 4%;
+        --secondary: 240 5% 11%;
         --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
+        --muted: 240 5% 11%;
+        --muted-foreground: 240 5% 65%;
+        --accent: 240 5% 11%;
         --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
+        --destructive: 0 72% 51%;
         --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
+        --border: 240 5% 16%;
+        --input: 240 5% 16%;
+        --ring: 0 0% 80%;
+        --radius: 2px;
     }
 }
 
@@ -80,36 +56,158 @@ code {
     body {
         @apply bg-background text-foreground;
     }
+    .font-display {
+        font-family: "Chivo", system-ui, sans-serif;
+    }
+    .font-mono-ui {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+    }
 }
 
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
+/* scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #0a0a0b;
+}
+::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+}
 
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
+/* react flow overrides */
+.react-flow__attribution {
+    display: none !important;
+}
+.react-flow__controls {
+    background: #121214 !important;
+    border: 1px solid #27272a !important;
+    border-radius: 0 !important;
+}
+.react-flow__controls button {
+    background: #121214 !important;
+    border-bottom: 1px solid #27272a !important;
+    color: #fafafa !important;
+}
+.react-flow__controls button:hover {
+    background: #1a1a1e !important;
+}
+.react-flow__minimap {
+    background: #121214 !important;
+    border: 1px solid #27272a !important;
+}
+.react-flow__edge-path {
+    stroke: #52525b;
+    stroke-width: 1.5;
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path {
+    stroke: #fafafa;
+    stroke-width: 2;
+}
+.react-flow__edge.animated .react-flow__edge-path {
+    stroke-dasharray: 6 3;
+    animation: dash 1s linear infinite;
+}
+@keyframes dash {
+    to {
+        stroke-dashoffset: -18;
     }
+}
+.react-flow__handle {
+    background: #fafafa !important;
+    border: 1px solid #0a0a0b !important;
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 0 !important;
+}
+
+/* prose dark for markdown */
+.cf-prose {
+    color: #d4d4d8;
+    font-size: 12px;
+    line-height: 1.55;
+}
+.cf-prose h1,
+.cf-prose h2,
+.cf-prose h3,
+.cf-prose h4 {
+    font-family: "Chivo", sans-serif;
+    color: #fafafa;
+    margin: 0.8em 0 0.4em;
+    letter-spacing: -0.02em;
+}
+.cf-prose h1 {
+    font-size: 18px;
+    font-weight: 900;
+}
+.cf-prose h2 {
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.cf-prose h3 {
+    font-size: 13px;
+    font-weight: 700;
+}
+.cf-prose p {
+    margin: 0.4em 0;
+}
+.cf-prose ul,
+.cf-prose ol {
+    margin: 0.4em 0;
+    padding-left: 1.2em;
+}
+.cf-prose code {
+    background: #1a1a1e;
+    border: 1px solid #27272a;
+    padding: 0 4px;
+    font-size: 11px;
+}
+.cf-prose pre {
+    background: #0a0a0b;
+    border: 1px solid #27272a;
+    padding: 8px;
+    overflow-x: auto;
+    font-size: 11px;
+}
+.cf-prose pre code {
+    background: transparent;
+    border: 0;
+    padding: 0;
+}
+.cf-prose a {
+    color: #06b6d4;
+    text-decoration: underline;
+}
+.cf-prose blockquote {
+    border-left: 2px solid #3f3f46;
+    padding-left: 8px;
+    color: #a1a1aa;
+}
+
+/* selection */
+::selection {
+    background: #fafafa;
+    color: #0a0a0b;
+}
+
+/* utility: tracking-widest with monospace looks great */
+.overline {
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    font-size: 10px;
+    color: #71717a;
+}
+
+/* button focus ring color override */
+.cf-btn:focus-visible {
+    outline: 1px solid #fafafa;
+    outline-offset: 2px;
 }
