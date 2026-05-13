@@ -21,19 +21,29 @@ const AI_ACTIONS = [
   { key: "test_plan", label: "Generate test plan" },
 ];
 
-export default function Inspector({ node, onChange, onDelete, onClose }) {
+export default function Inspector({ node, onChange, onDelete, onClose, aiAssistRef }) {
   const [draft, setDraft] = useState(node || null);
   const [mode, setMode] = useState("edit"); // edit | preview
   const [aiLoading, setAiLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const saveTimer = useRef(null);
   const pendingPatch = useRef({});
+  const runAIRef = useRef(null);
 
   useEffect(() => {
     setDraft(node || null);
     pendingPatch.current = {};
     if (saveTimer.current) clearTimeout(saveTimer.current);
   }, [node?.id]);
+
+  useEffect(() => {
+    if (aiAssistRef) {
+      aiAssistRef.current = () => runAIRef.current?.("expand");
+    }
+    return () => {
+      if (aiAssistRef) aiAssistRef.current = null;
+    };
+  }, [aiAssistRef]);
 
   if (!node) {
     return (
@@ -91,6 +101,7 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
       setAiLoading(false);
     }
   };
+  runAIRef.current = runAI;
 
   return (
     <aside
@@ -178,6 +189,7 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
           <Sparkle size={12} weight="fill" />
           {aiLoading ? "THINKING..." : "AI ASSIST"}
           <CaretDown size={10} weight="bold" />
+          <kbd className="ml-2 border border-cf-bg/30 px-1 text-[9px] opacity-60">⌘.</kbd>
         </button>
         {aiOpen && (
           <div className="absolute left-4 right-4 mt-1 border border-cf-line bg-cf-bg z-20">

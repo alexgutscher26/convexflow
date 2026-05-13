@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [projectType, setProjectType] = useState("greenfield");
   const [creating, setCreating] = useState(false);
 
   const load = async () => {
@@ -36,7 +37,11 @@ export default function Dashboard() {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      const { data } = await api.post("/projects", { name, description });
+      const { data } = await api.post("/projects", {
+        name,
+        description,
+        project_type: projectType,
+      });
       toast.success("Project created");
       nav(`/app/project/${data.id}`);
     } catch (e) {
@@ -191,7 +196,7 @@ export default function Dashboard() {
                 data-testid="new-project-name"
               />
             </label>
-            <label className="block mb-6">
+            <label className="block mb-4">
               <span className="overline">DESCRIPTION (OPTIONAL)</span>
               <textarea
                 value={description}
@@ -201,6 +206,30 @@ export default function Dashboard() {
                 data-testid="new-project-description"
               />
             </label>
+            <div className="mb-6">
+              <span className="overline">PROJECT TYPE</span>
+              <div className="grid grid-cols-3 gap-1 mt-2">
+                {[
+                  { v: "greenfield", l: "GREENFIELD" },
+                  { v: "existing", l: "EXISTING" },
+                  { v: "feature", l: "FEATURE" },
+                ].map((t) => (
+                  <button
+                    type="button"
+                    key={t.v}
+                    onClick={() => setProjectType(t.v)}
+                    className={`cf-btn border px-2 py-2 text-[10px] uppercase tracking-widest font-bold transition-colors ${
+                      projectType === t.v
+                        ? "bg-cf-text text-cf-bg border-cf-text"
+                        : "border-cf-line text-cf-dim hover:bg-cf-elev"
+                    }`}
+                    data-testid={`project-type-${t.v}`}
+                  >
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex gap-2">
               <button
                 type="button"

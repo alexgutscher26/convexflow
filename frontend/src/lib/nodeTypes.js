@@ -1,4 +1,4 @@
-// Catalog of 12 node categories — visual identity & default content templates.
+// Catalog of 14 node categories — visual identity & default content templates.
 import {
   Compass,
   ListChecks,
@@ -12,6 +12,8 @@ import {
   FileCode,
   CloudArrowUp,
   TestTube,
+  GithubLogo,
+  Sparkle,
 } from "@phosphor-icons/react";
 
 export const NODE_TYPES = [
@@ -112,7 +114,7 @@ export const NODE_TYPES = [
     icon: Brain,
     blurb: "Coding constraints and conventions.",
     template:
-      "## Conventions\n- naming: \n- state mgmt: \n- folder layout: \n\n## Forbidden\n- ",
+      "## DO\n- \n\n## DO NOT\n- \n\n## Conventions\n- naming: \n- state mgmt: \n- folder layout: ",
   },
   {
     type: "File References",
@@ -123,7 +125,7 @@ export const NODE_TYPES = [
     icon: FileCode,
     blurb: "Linked repository files.",
     template:
-      "Paste files via inspector → Linked files.\n\n## Notes\n- ",
+      "Attach files via inspector → Linked files.\n\n## Notes\n- ",
   },
   {
     type: "Deployment Requirements",
@@ -147,8 +149,42 @@ export const NODE_TYPES = [
     template:
       "## Unit tests\n- \n\n## Integration\n- \n\n## E2E\n- ",
   },
+  {
+    type: "GitHub Context",
+    short: "REPO",
+    bg: "#8B5CF6",
+    text: "#FFFFFF",
+    border: "#7C3AED",
+    icon: GithubLogo,
+    blurb: "Auto-populated repo metadata.",
+    template:
+      "_Auto-generated on repo connect. Refresh by rescanning._",
+  },
+  {
+    type: "Prompt Output",
+    short: "PROMPT",
+    bg: "#27272A",
+    text: "#FAFAFA",
+    border: "#52525B",
+    icon: Sparkle,
+    blurb: "Compiled AI prompt (read-only).",
+    template:
+      "_Generate via the bottom console → Save as node._",
+  },
 ];
 
 export const NODE_TYPE_MAP = Object.fromEntries(
   NODE_TYPES.map((n) => [n.type, n]),
+);
+
+export const EDGE_RELATIONSHIPS = [
+  { value: "depends_on", label: "Depends on", color: "#3B82F6" },
+  { value: "constrains", label: "Constrains", color: "#F59E0B" },
+  { value: "implements", label: "Implements", color: "#10B981" },
+  { value: "references", label: "References", color: "#94A3B8" },
+  { value: "produces", label: "Produces", color: "#EC4899" },
+];
+
+export const EDGE_REL_MAP = Object.fromEntries(
+  EDGE_RELATIONSHIPS.map((e) => [e.value, e]),
 );

@@ -25,7 +25,7 @@ const EXPORTS = [
   { value: "json", label: "JSON graph" },
 ];
 
-export default function Console({ projectId, selectedNodeIds }) {
+export default function Console({ projectId, selectedNodeIds, onNodeCreated }) {
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState("prompt");
   const [template, setTemplate] = useState("feature_implementation");
@@ -33,10 +33,13 @@ export default function Console({ projectId, selectedNodeIds }) {
   const [exportFmt, setExportFmt] = useState("markdown");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [savingNode, setSavingNode] = useState(false);
+  const [outputKind, setOutputKind] = useState(""); // "prompt" | "export"
 
   const generate = async () => {
     setLoading(true);
     setOutput("");
+    setOutputKind("");
     try {
       const { data } = await api.post(
         `/projects/${projectId}/ai/generate-prompt`,
@@ -47,6 +50,7 @@ export default function Console({ projectId, selectedNodeIds }) {
         },
       );
       setOutput(data.prompt);
+      setOutputKind("prompt");
       toast.success("Prompt generated");
     } catch (e) {
       toast.error(e.response?.data?.detail || "Generation failed");
@@ -55,23 +59,48 @@ export default function Console({ projectId, selectedNodeIds }) {
     }
   };
 
-  const exportProj = async () => {
+  const exportProj = async (fmt) => {
+    const format = fmt || exportFmt;
     setLoading(true);
     setOutput("");
+    setOutputKind("");
     try {
       const { data } = await api.post(`/projects/${projectId}/export`, {
-        format: exportFmt,
+        format,
       });
       const content =
         typeof data.content === "string"
           ? data.content
           : JSON.stringify(data.content, null, 2);
       setOutput(content);
+      setOutputKind("export");
       toast.success(`Exported ${data.format}`);
     } catch (e) {
       toast.error("Export failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveAsNode = async () => {
+    if (!output) return;
+    setSavingNode(true);
+    try {
+      const { data } = await api.post(
+        `/projects/${projectId}/save-prompt-node`,
+        {
+          content: output,
+          title: `${template.replace(/_/g, " ")} prompt`,
+          position_x: Math.random() * 200 - 100,
+          position_y: Math.random() * 200 + 200,
+        },
+      );
+      toast.success("Saved as Prompt Output node");
+      onNodeCreated?.(data);
+    } catch (e) {
+      toast.error("Save failed");
+    } finally {
+      setSavingNode(false);
     }
   };
 
@@ -145,6 +174,16 @@ export default function Console({ projectId, selectedNodeIds }) {
           EXPORT
         </button>
         <div className="ml-auto flex items-center gap-2 pr-3">
+          {output && outputKind === "prompt" && (
+            <button
+              onClick={saveAsNode}
+              disabled={savingNode}
+              className="cf-btn text-[10px] uppercase tracking-widest border border-emerald-700 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/40 px-2 py-1 transition-colors disabled:opacity-50"
+              data-testid="save-prompt-as-node"
+            >
+              {savingNode ? "SAVING..." : "+ SAVE AS NODE"}
+            </button>
+          )}
           {output && (
             <>
               <button

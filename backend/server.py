@@ -120,12 +120,14 @@ class TokenResp(BaseModel):
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = ""
+    project_type: Literal["greenfield", "existing", "feature"] = "greenfield"
 
 
 class ProjectUpdate(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: Optional[str] = None
     description: Optional[str] = None
+    project_type: Optional[Literal["greenfield", "existing", "feature"]] = None
 
 
 class NodeIn(BaseModel):
@@ -151,7 +153,16 @@ class NodeUpdate(BaseModel):
 class EdgeIn(BaseModel):
     source_node_id: str
     target_node_id: str
-    relationship_type: str = "depends_on"
+    relationship_type: Literal[
+        "depends_on", "constrains", "implements", "references", "produces"
+    ] = "depends_on"
+
+
+class SavePromptNodeReq(BaseModel):
+    content: str
+    title: str = "Generated Prompt"
+    position_x: float = 0
+    position_y: float = 0
 
 
 class RepoConnect(BaseModel):
@@ -231,6 +242,7 @@ async def create_project(req: ProjectCreate, user: dict = Depends(get_current_us
         "id": new_id(),
         "name": req.name,
         "description": req.description,
+        "project_type": req.project_type,
         "owner_id": user["id"],
         "repository": None,
         "created_at": now_iso(),
@@ -516,6 +528,49 @@ async def scan_repo(project_id: str, user: dict = Depends(get_current_user)):
         {"id": project_id},
         {"$set": {"repository": repo, "updated_at": now_iso()}},
     )
+
+    # Upsert a "GitHub Context" node so scan results show on the canvas.
+    ctx_lines = [
+        f"## Repository\n`{repo['owner']}/{repo['repo']}` · branch `{repo['branch']}`",
+        "",
+    ]
+    if repo.get("frameworks"):
+        ctx_lines.append("## Detected stack")
+        for f in repo["frameworks"]:
+            ctx_lines.append(f"- {f}")
+        ctx_lines.append("")
+    ctx_lines.append(f"## File tree\n`{len(file_tree)}` files indexed.")
+    if readme:
+        ctx_lines.append("")
+        ctx_lines.append("## README excerpt")
+        ctx_lines.append("```")
+        ctx_lines.append(readme[:1500])
+        ctx_lines.append("```")
+    ctx_content = "\n".join(ctx_lines)
+
+    existing = await db.nodes.find_one(
+        {"project_id": project_id, "type": "GitHub Context"}, {"_id": 0}
+    )
+    if existing:
+        await db.nodes.update_one(
+            {"id": existing["id"]},
+            {"$set": {"content": ctx_content, "updated_at": now_iso()}},
+        )
+    else:
+        ctx_node = {
+            "id": new_id(),
+            "project_id": project_id,
+            "type": "GitHub Context",
+            "title": f"{repo['owner']}/{repo['repo']}",
+            "content": ctx_content,
+            "position_x": -260,
+            "position_y": -120,
+            "metadata": {"auto_generated": True},
+            "file_references": [],
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        await db.nodes.insert_one(ctx_node)
     return repo
 
 
@@ -524,7 +579,7 @@ NODE_TYPE_LIST = [
     "Product Overview", "Feature Scope", "User Stories", "Technical Architecture",
     "Database Schema", "API Contracts", "UI Requirements", "Acceptance Criteria",
     "AI Coding Rules", "File References", "Deployment Requirements",
-    "Testing Instructions",
+    "Testing Instructions", "GitHub Context", "Prompt Output",
 ]
 
 AI_INSTRUCTIONS = {
@@ -566,12 +621,49 @@ async def ai_expand(req: AIExpandReq, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Node not found")
     await assert_project_owner(node["project_id"], user["id"])
 
+    # Pull ancestor nodes (1 hop upstream) for grounding.
+    incoming = await db.edges.find(
+        {"target_node_id": req.node_id}, {"_id": 0}
+    ).to_list(50)
+    ancestor_ids = [e["source_node_id"] for e in incoming]
+    ancestors = []
+    if ancestor_ids:
+        ancestors = await db.nodes.find(
+            {"id": {"$in": ancestor_ids}}, {"_id": 0}
+        ).to_list(50)
+
+    # Pull project repo + coding rules nodes for added context.
+    project = await db.projects.find_one(
+        {"id": node["project_id"]}, {"_id": 0}
+    )
+    repo = (project or {}).get("repository") or {}
+    rules_nodes = await db.nodes.find(
+        {"project_id": node["project_id"], "type": "AI Coding Rules"}, {"_id": 0}
+    ).to_list(10)
+
     instruction = AI_INSTRUCTIONS.get(req.instruction, AI_INSTRUCTIONS["expand"])
+
+    ctx_parts: list[str] = []
+    if repo.get("frameworks"):
+        ctx_parts.append(f"Detected stack: {', '.join(repo['frameworks'])}")
+    if rules_nodes:
+        ctx_parts.append("Project coding rules:")
+        for r in rules_nodes:
+            ctx_parts.append(r.get("content", "")[:600])
+    if ancestors:
+        ctx_parts.append("Upstream nodes (use as authoritative context):")
+        for a in ancestors:
+            ctx_parts.append(
+                f"### [{a['type']}] {a.get('title', '')}\n{a.get('content', '')[:800]}"
+            )
+    ctx_block = "\n\n".join(ctx_parts) if ctx_parts else "(no additional context)"
+
     prompt = (
         f"# Task\n{instruction}\n\n"
         f"# Node type\n{node['type']}\n\n"
         f"# Node title\n{node.get('title', '')}\n\n"
         f"# Current content\n{node.get('content', '') or '(empty)'}\n\n"
+        f"# Project context\n{ctx_block}\n\n"
         f"Return only the new markdown content. No preamble."
     )
     try:
@@ -596,7 +688,6 @@ async def ai_generate_prompt(
     edges = await db.edges.find(
         {"project_id": project_id}, {"_id": 0}
     ).to_list(5000)
-
     by_type: dict[str, list[dict]] = {}
     for n in nodes:
         by_type.setdefault(n["type"], []).append(n)
@@ -660,6 +751,34 @@ async def ai_generate_prompt(
         log.exception("AI prompt generation failed")
         raise HTTPException(status_code=502, detail=f"AI error: {e}")
     return {"prompt": reply, "template": req.template}
+
+
+@api.post("/projects/{project_id}/save-prompt-node")
+async def save_prompt_node(
+    project_id: str,
+    req: SavePromptNodeReq,
+    user: dict = Depends(get_current_user),
+):
+    await assert_project_owner(project_id, user["id"])
+    doc = {
+        "id": new_id(),
+        "project_id": project_id,
+        "type": "Prompt Output",
+        "title": req.title,
+        "content": req.content,
+        "position_x": req.position_x,
+        "position_y": req.position_y,
+        "metadata": {"generated": True},
+        "file_references": [],
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    await db.nodes.insert_one(doc)
+    await db.projects.update_one(
+        {"id": project_id}, {"$set": {"updated_at": now_iso()}}
+    )
+    doc.pop("_id", None)
+    return doc
 
 
 # ---------- export ----------

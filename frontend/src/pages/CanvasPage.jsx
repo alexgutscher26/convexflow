@@ -17,9 +17,11 @@ import {
   PencilSimple,
   PlusCircle,
   Command,
+  CheckCircle,
+  CircleNotch,
 } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
-import { NODE_TYPE_MAP } from "@/lib/nodeTypes";
+import { NODE_TYPE_MAP, EDGE_RELATIONSHIPS, EDGE_REL_MAP } from "@/lib/nodeTypes";
 import { CustomNode } from "@/components/canvas/CustomNode";
 import Sidebar from "@/components/canvas/Sidebar";
 import Inspector from "@/components/canvas/Inspector";
@@ -43,12 +45,26 @@ function toRfNode(n) {
 }
 
 function toRfEdge(e) {
+  const rel = EDGE_REL_MAP[e.relationship_type] || EDGE_REL_MAP.depends_on;
   return {
     id: e.id,
     source: e.source_node_id,
     target: e.target_node_id,
     animated: true,
     type: "smoothstep",
+    label: rel.label,
+    labelBgPadding: [4, 2],
+    labelBgBorderRadius: 0,
+    labelBgStyle: { fill: "#0a0a0b", stroke: rel.color, strokeWidth: 1 },
+    labelStyle: {
+      fill: rel.color,
+      fontSize: 9,
+      fontFamily: "JetBrains Mono",
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+    },
+    style: { stroke: rel.color },
+    data: { relationship_type: e.relationship_type },
   };
 }
 
@@ -56,7 +72,7 @@ function CanvasInner() {
   const { id: projectId } = useParams();
   const nav = useNavigate();
   const flowWrapper = useRef(null);
-  const { project: rfProject, screenToFlowPosition } = useReactFlow();
+  const { project: rfProject, screenToFlowPosition, fitView } = useReactFlow();
 
   const [project, setProject] = useState(null);
   const [rawNodes, setRawNodes] = useState([]); // backend nodes
@@ -66,6 +82,18 @@ function CanvasInner() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editName, setEditName] = useState(false);
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
+  const [pendingConn, setPendingConn] = useState(null);
+  const saveStateTimer = useRef(null);
+  const markSaving = useCallback(() => {
+    setSaveState("saving");
+    if (saveStateTimer.current) clearTimeout(saveStateTimer.current);
+  }, []);
+  const markSaved = useCallback(() => {
+    setSaveState("saved");
+    if (saveStateTimer.current) clearTimeout(saveStateTimer.current);
+    saveStateTimer.current = setTimeout(() => setSaveState("idle"), 1500);
+  }, []);
 
   const selectedNode = useMemo(
     () => rawNodes.find((n) => n.id === selectedId),
@@ -94,18 +122,58 @@ function CanvasInner() {
     })();
   }, [projectId, nav]);
 
-  // Cmd+K
+  const reloadGraph = useCallback(async () => {
+    try {
+      const [n, e] = await Promise.all([
+        api.get(`/projects/${projectId}/nodes`),
+        api.get(`/projects/${projectId}/edges`),
+      ]);
+      setRawNodes(n.data);
+      setNodes((rfNodes) => {
+        const byId = new Map(rfNodes.map((r) => [r.id, r]));
+        return n.data.map((nd) => {
+          const ex = byId.get(nd.id);
+          return ex
+            ? { ...ex, position: { x: nd.position_x, y: nd.position_y }, data: { type: nd.type, title: nd.title, content: nd.content, file_references: nd.file_references || [] } }
+            : toRfNode(nd);
+        });
+      });
+      setEdges(e.data.map(toRfEdge));
+    } catch (err) {
+      // ignore
+    }
+  }, [projectId]);
+
+  // expose fitView via ref
+  const fitViewRef = useRef(null);
+  const aiAssistRef = useRef(null);
+  useEffect(() => {
+    fitViewRef.current = () => fitView({ padding: 0.2, duration: 300 });
+  }, [fitView]);
   useEffect(() => {
     const handler = (e) => {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      const isEditable =
+        tag === "input" ||
+        tag === "textarea" ||
+        e.target?.isContentEditable;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen(true);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        e.preventDefault();
+        if (aiAssistRef.current && selectedId) aiAssistRef.current();
+      }
+      if (e.key.toLowerCase() === "f" && !isEditable && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        fitViewRef.current?.();
       }
       if (e.key === "Escape") setPaletteOpen(false);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [selectedId]);
 
   // sync rawNodes -> rf nodes when data changes (for content / title preview etc)
   useEffect(() => {
@@ -131,18 +199,20 @@ function CanvasInner() {
     // persist drag position
     changes.forEach((ch) => {
       if (ch.type === "position" && ch.dragging === false && ch.position) {
+        markSaving();
         api
           .put(`/nodes/${ch.id}`, {
             position_x: ch.position.x,
             position_y: ch.position.y,
           })
+          .then(markSaved)
           .catch(() => {});
       }
       if (ch.type === "select") {
         if (ch.selected) setSelectedId(ch.id);
       }
     });
-  }, []);
+  }, [markSaving, markSaved]);
 
   const onEdgesChange = useCallback((changes) => {
     setEdges((eds) => applyEdgeChanges(changes, eds));
@@ -228,12 +298,14 @@ function CanvasInner() {
 
   const updateNode = useCallback(async (nodeId, patch) => {
     try {
+      markSaving();
       const { data } = await api.put(`/nodes/${nodeId}`, patch);
       setRawNodes((rs) => rs.map((r) => (r.id === nodeId ? data : r)));
+      markSaved();
     } catch (e) {
       toast.error("Failed to save");
     }
-  }, []);
+  }, [markSaving, markSaved]);
 
   const deleteNode = useCallback(
     async (nodeId) => {
@@ -323,10 +395,34 @@ function CanvasInner() {
           </button>
         )}
         <div className="ml-auto flex items-center gap-3 text-[10px] text-cf-mute">
+          <span data-testid="save-state" className="flex items-center gap-1">
+            {saveState === "saving" && (
+              <>
+                <CircleNotch size={10} className="animate-spin" />
+                <span>SAVING</span>
+              </>
+            )}
+            {saveState === "saved" && (
+              <>
+                <CheckCircle size={10} weight="fill" className="text-emerald-500" />
+                <span>SAVED</span>
+              </>
+            )}
+            {saveState === "idle" && <span className="opacity-40">SYNCED</span>}
+          </span>
+          <span>·</span>
           <span data-testid="nodes-count">{rawNodes.length} NODES</span>
           <span>·</span>
           <span data-testid="edges-count">{edges.length} EDGES</span>
           <span>·</span>
+          <button
+            onClick={() => fitViewRef.current?.()}
+            className="cf-btn border border-cf-line px-2 py-1 hover:bg-cf-elev text-cf-dim hover:text-cf-text transition-colors"
+            data-testid="fit-canvas"
+            title="Fit canvas (F)"
+          >
+            FIT
+          </button>
           <button
             onClick={() => setPaletteOpen(true)}
             className="cf-btn flex items-center gap-1 border border-cf-line px-2 py-1 hover:bg-cf-elev text-cf-dim hover:text-cf-text transition-colors"
@@ -340,7 +436,11 @@ function CanvasInner() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           project={project}
-          onProjectUpdate={setProject}
+          onProjectUpdate={(p) => {
+            setProject(p);
+            // repo scan may have created/updated a GitHub Context node
+            if (p.repository) reloadGraph();
+          }}
           onDragNode={addNodeAtCenter}
           onAttachFile={attachFile}
           selectedNodeId={selectedId}
@@ -393,7 +493,15 @@ function CanvasInner() {
               </div>
             )}
           </div>
-          <Console projectId={projectId} selectedNodeIds={selectedId ? [selectedId] : []} />
+          <Console
+            projectId={projectId}
+            selectedNodeIds={selectedId ? [selectedId] : []}
+            onNodeCreated={(node) => {
+              setRawNodes((rs) => [...rs, node]);
+              setNodes((ns) => [...ns, toRfNode(node)]);
+              setSelectedId(node.id);
+            }}
+          />
         </div>
 
         <Inspector
@@ -401,8 +509,49 @@ function CanvasInner() {
           onChange={updateNode}
           onDelete={deleteNode}
           onClose={() => setSelectedId(null)}
+          aiAssistRef={aiAssistRef}
         />
       </div>
+
+      {pendingConn && (
+        <div
+          className="fixed inset-0 bg-cf-bg/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setPendingConn(null)}
+          data-testid="edge-relationship-modal"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm border border-cf-line bg-cf-surface p-6"
+          >
+            <div className="overline mb-2">▸ EDGE RELATIONSHIP</div>
+            <h3 className="font-display font-black text-2xl tracking-tighter mb-5">
+              How are these linked?
+            </h3>
+            <div className="space-y-1">
+              {EDGE_RELATIONSHIPS.map((r) => (
+                <button
+                  key={r.value}
+                  onClick={() => confirmConnect(r.value)}
+                  className="w-full flex items-center gap-3 border border-cf-line px-3 py-2 hover:bg-cf-elev transition-colors text-left"
+                  data-testid={`edge-rel-${r.value}`}
+                >
+                  <div className="w-2 h-6" style={{ background: r.color }} />
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: r.color }}>
+                    {r.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPendingConn(null)}
+              className="cf-btn w-full mt-4 border border-cf-line py-2 text-[11px] font-bold hover:bg-cf-elev transition-colors"
+              data-testid="edge-rel-cancel"
+            >
+              CANCEL
+            </button>
+          </div>
+        </div>
+      )}
 
       <CommandPalette
         open={paletteOpen}
