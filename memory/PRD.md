@@ -108,6 +108,15 @@ After v1 ship, user uploaded the **Archon PRD** (a near-identical product spec).
 - `/app/frontend/src/lib/diff.js` implements LCS-based line diff
 - `HISTORY` link added to canvas header beside `SNAPSHOT`, `FIT`, and `⌘K`
 
+### v8 (Feb 2026, day 1 — Repo refresh + stale-file detection)
+- **Prominent `REFRESH REPOSITORY` button** in the REPO sidebar (replaces the tiny icon-only rescan), with last-scan timestamp shown above it (`branch: main · last scan: 5/13/2026, 7:24 PM`)
+- Backend `POST /projects/{id}/repository/scan` now also walks every node's `file_references`, compares them against the freshly fetched file tree, and stamps `metadata.stale_file_references` + `metadata.last_rescan_at` on each affected node. Resolved references (file came back) get the stale flag auto-cleared.
+- Scan response now includes `stale_summary: {count, nodes:[{node_id, title, type, stale_paths}]}` so the UI can summarize impact
+- Toast surfaces stale count after refresh — "Rescan complete · N nodes have stale file references — <titles>"
+- `CustomNode` shows an orange `⟳ STALE N` badge in the header, an orange border, and `N/M STALE` footer when stale refs are present (validation issues still take precedence)
+- `Inspector` linked-files list highlights stale paths with strikethrough text, orange border, and a `STALE` badge — users can detach with one click
+- Verified end-to-end with `octocat/Hello-World`: attach `README` + 2 non-existent paths → refresh → 2/3 stale flagged everywhere; reset to only `README` → flags cleared
+
 ## Prioritized backlog (P0/P1/P2)
 
 ### Deferred from Archon PRD (post-MVP)

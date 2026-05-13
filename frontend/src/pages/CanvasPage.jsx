@@ -44,6 +44,7 @@ function toRfNode(n) {
       title: n.title,
       content: n.content,
       file_references: n.file_references || [],
+      stale_file_references: n.metadata?.stale_file_references || [],
     },
   };
 }
@@ -142,7 +143,7 @@ function CanvasInner() {
         return n.data.map((nd) => {
           const ex = byId.get(nd.id);
           return ex
-            ? { ...ex, position: { x: nd.position_x, y: nd.position_y }, data: { type: nd.type, title: nd.title, content: nd.content, file_references: nd.file_references || [] } }
+            ? { ...ex, position: { x: nd.position_x, y: nd.position_y }, data: { type: nd.type, title: nd.title, content: nd.content, file_references: nd.file_references || [], stale_file_references: nd.metadata?.stale_file_references || [] } }
             : toRfNode(nd);
         });
       });
@@ -235,6 +236,7 @@ function CanvasInner() {
             title: raw.title,
             content: raw.content,
             file_references: raw.file_references || [],
+            stale_file_references: raw.metadata?.stale_file_references || [],
             issueSev: iss?.severity,
             issueCount: iss?.count,
           },

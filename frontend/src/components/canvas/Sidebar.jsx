@@ -123,8 +123,9 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
       setShowConnect(false);
       // auto scan
       const scan = await api.post(`/projects/${project.id}/repository/scan`);
-      onProjectUpdate({ ...project, repository: scan.data });
-      toast.success(`Scan complete · ${scan.data.frameworks?.length || 0} frameworks`);
+      const { stale_summary, ...repoOnly } = scan.data;
+      onProjectUpdate({ ...project, repository: repoOnly });
+      toast.success(`Scan complete · ${repoOnly.frameworks?.length || 0} frameworks`);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Connect failed");
     } finally {
@@ -136,10 +137,25 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
     setWorking(true);
     try {
       const { data } = await api.post(`/projects/${project.id}/repository/scan`);
-      onProjectUpdate({ ...project, repository: data });
-      toast.success("Scan complete");
+      const { stale_summary, ...repoOnly } = data;
+      onProjectUpdate({ ...project, repository: repoOnly });
+      const staleCount = stale_summary?.count || 0;
+      if (staleCount > 0) {
+        toast.warning(
+          `Rescan complete · ${staleCount} node${staleCount > 1 ? "s have" : " has"} stale file references`,
+          {
+            description: stale_summary.nodes
+              .slice(0, 3)
+              .map((n) => n.title)
+              .join(" · "),
+            duration: 8000,
+          },
+        );
+      } else {
+        toast.success("Rescan complete · all file references up to date");
+      }
     } catch (e) {
-      toast.error("Scan failed");
+      toast.error(e.response?.data?.detail || "Rescan failed");
     } finally {
       setWorking(false);
     }
@@ -235,18 +251,16 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
                   <span className="text-[11px] font-bold truncate flex-1">
                     {repository.owner}/{repository.repo}
                   </span>
-                  <button
-                    onClick={rescan}
-                    disabled={working}
-                    className="text-cf-dim hover:text-cf-text"
-                    title="Rescan"
-                    data-testid="rescan-repo"
-                  >
-                    <ArrowsClockwise size={12} className={working ? "animate-spin" : ""} />
-                  </button>
                 </div>
                 <div className="text-[10px] text-cf-mute mt-1">
                   branch: {repository.branch}
+                  {repository.scanned_at && (
+                    <>
+                      {" · "}
+                      last scan:{" "}
+                      {new Date(repository.scanned_at).toLocaleString()}
+                    </>
+                  )}
                 </div>
                 {repository.frameworks?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
@@ -261,6 +275,19 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
                     ))}
                   </div>
                 )}
+                <button
+                  onClick={rescan}
+                  disabled={working}
+                  className="cf-btn w-full mt-3 border border-cf-line py-1.5 text-[10px] uppercase tracking-widest font-bold text-cf-dim hover:bg-cf-elev hover:text-cf-text transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  data-testid="refresh-repository-button"
+                  title="Re-pull file tree from GitHub and flag stale references"
+                >
+                  <ArrowsClockwise
+                    size={11}
+                    className={working ? "animate-spin" : ""}
+                  />
+                  {working ? "REFRESHING..." : "REFRESH REPOSITORY"}
+                </button>
               </div>
               <div className="px-3 py-2 overline border-b border-cf-line flex items-center justify-between">
                 <span>▸ FILE TREE</span>

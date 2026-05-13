@@ -697,6 +697,45 @@ async def scan_repo(project_id: str, user: dict = Depends(get_current_user)):
         {"$set": {"repository": repo, "updated_at": now_iso()}},
     )
 
+    # Stale file-reference detection: walk every node, compare its
+    # file_references against the freshly fetched tree, and stamp the node
+    # metadata so the canvas can highlight stale links.
+    new_paths = {t["path"] for t in raw_tree if t.get("type") == "blob"}
+    stale_nodes_summary: list[dict] = []
+    nodes_to_check = await db.nodes.find(
+        {"project_id": project_id}, {"_id": 0}
+    ).to_list(2000)
+    for n in nodes_to_check:
+        refs = n.get("file_references") or []
+        if not refs:
+            # still clear any old stale marker
+            md = n.get("metadata") or {}
+            if md.get("stale_file_references"):
+                md.pop("stale_file_references", None)
+                md["last_rescan_at"] = now_iso()
+                await db.nodes.update_one(
+                    {"id": n["id"]},
+                    {"$set": {"metadata": md, "updated_at": now_iso()}},
+                )
+            continue
+        stale = [p for p in refs if p not in new_paths]
+        md = n.get("metadata") or {}
+        md["last_rescan_at"] = now_iso()
+        if stale:
+            md["stale_file_references"] = stale
+            stale_nodes_summary.append({
+                "node_id": n["id"],
+                "title": n.get("title") or "(untitled)",
+                "type": n.get("type"),
+                "stale_paths": stale,
+            })
+        else:
+            md.pop("stale_file_references", None)
+        await db.nodes.update_one(
+            {"id": n["id"]},
+            {"$set": {"metadata": md, "updated_at": now_iso()}},
+        )
+
     # Upsert a "GitHub Context" node so scan results show on the canvas.
     ctx_lines = [
         f"## Repository\n`{repo['owner']}/{repo['repo']}` · branch `{repo['branch']}`",
@@ -739,7 +778,13 @@ async def scan_repo(project_id: str, user: dict = Depends(get_current_user)):
             "updated_at": now_iso(),
         }
         await db.nodes.insert_one(ctx_node)
-    return repo
+    return {
+        **repo,
+        "stale_summary": {
+            "count": len(stale_nodes_summary),
+            "nodes": stale_nodes_summary,
+        },
+    }
 
 
 # ---------- AI helpers (Claude Sonnet 4.5) ----------

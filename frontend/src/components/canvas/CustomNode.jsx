@@ -10,6 +10,8 @@ function CustomNodeBase({ data, selected }) {
   const preview =
     content.replace(/[#*`>_-]/g, "").trim().slice(0, 110) || cfg.blurb;
   const refCount = (data.file_references || []).length;
+  const staleRefs = data.stale_file_references || [];
+  const staleCount = staleRefs.length;
   const complete = content.length >= 20;
   const issueSev = data.issueSev; // 'error' | 'warning' | 'info' | undefined
   const issueCount = data.issueCount || 0;
@@ -21,6 +23,8 @@ function CustomNodeBase({ data, selected }) {
         : issueSev === "info"
           ? "#60A5FA"
           : null;
+  const staleBorder = !sevColor && staleCount > 0 ? "#FB923C" : null;
+  const borderColor = sevColor || staleBorder || cfg.border;
 
   return (
     <div
@@ -28,7 +32,7 @@ function CustomNodeBase({ data, selected }) {
       style={{
         width: 260,
         background: "#0a0a0b",
-        border: `1px solid ${sevColor || cfg.border}`,
+        border: `1px solid ${borderColor}`,
         boxShadow: selected
           ? `4px 4px 0 ${cfg.bg}`
           : "0 0 0 transparent",
@@ -57,6 +61,15 @@ function CustomNodeBase({ data, selected }) {
             title={`${issueCount} ${issueSev}${issueCount > 1 ? "s" : ""}`}
           >
             ⚠ {issueCount}
+          </span>
+        ) : staleCount > 0 ? (
+          <span
+            className="ml-auto flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5"
+            style={{ background: "#FB923C", color: "#0A0A0B" }}
+            data-testid="node-stale-badge"
+            title={`${staleCount} stale file reference${staleCount > 1 ? "s" : ""}`}
+          >
+            ⟳ STALE {staleCount}
           </span>
         ) : complete ? (
           <CheckCircle
@@ -89,8 +102,13 @@ function CustomNodeBase({ data, selected }) {
           {preview}
         </div>
         {complete && refCount > 0 && (
-          <div className="text-[9px] text-cf-mute mt-2 uppercase tracking-widest">
-            {refCount} FILE{refCount > 1 ? "S" : ""} LINKED
+          <div
+            className="text-[9px] mt-2 uppercase tracking-widest"
+            style={{ color: staleCount > 0 ? "#FB923C" : undefined }}
+          >
+            {staleCount > 0
+              ? `${staleCount}/${refCount} STALE`
+              : `${refCount} FILE${refCount > 1 ? "S" : ""} LINKED`}
           </div>
         )}
       </div>

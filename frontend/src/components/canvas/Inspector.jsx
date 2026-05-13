@@ -224,22 +224,53 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
           </p>
         ) : (
           <ul className="space-y-1">
-            {(current.file_references || []).map((p) => (
-              <li
-                key={p}
-                className="flex items-center gap-2 text-[11px] bg-cf-bg border border-cf-line px-2 py-1"
-              >
-                <span className="truncate flex-1" title={p}>{p}</span>
-                <button
-                  onClick={() => removeFileRef(p)}
-                  className="text-cf-mute hover:text-red-400"
-                  aria-label="Detach file"
-                  data-testid={`detach-file`}
+            {(current.file_references || []).map((p) => {
+              const stale = (
+                current.metadata?.stale_file_references || []
+              ).includes(p);
+              return (
+                <li
+                  key={p}
+                  className="flex items-center gap-2 text-[11px] bg-cf-bg border px-2 py-1"
+                  style={{
+                    borderColor: stale ? "#FB923C" : undefined,
+                    background: stale ? "rgba(251,146,60,0.08)" : undefined,
+                  }}
+                  data-testid={stale ? "linked-file-stale" : "linked-file"}
                 >
-                  <X size={10} weight="bold" />
-                </button>
-              </li>
-            ))}
+                  <span
+                    className="truncate flex-1"
+                    title={
+                      stale
+                        ? `${p} — file missing in latest scan`
+                        : p
+                    }
+                    style={{
+                      textDecoration: stale ? "line-through" : undefined,
+                      color: stale ? "#FB923C" : undefined,
+                    }}
+                  >
+                    {p}
+                  </span>
+                  {stale && (
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-widest px-1 py-0.5"
+                      style={{ background: "#FB923C", color: "#0A0A0B" }}
+                    >
+                      STALE
+                    </span>
+                  )}
+                  <button
+                    onClick={() => removeFileRef(p)}
+                    className="text-cf-mute hover:text-red-400"
+                    aria-label="Detach file"
+                    data-testid={`detach-file`}
+                  >
+                    <X size={10} weight="bold" />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
