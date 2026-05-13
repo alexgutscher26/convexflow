@@ -1,0 +1,114 @@
+{
+  "theme": {
+    "mode": "dark",
+    "archetype": "Archetype 4 (Swiss & High-Contrast) - IDE Variant",
+    "emotion": "Precise, Technical, Objective, Engineered"
+  },
+  "typography": {
+    "headings": {
+      "fontFamily": "Chivo",
+      "import_url": "https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&display=swap",
+      "weights": [300, 400, 700, 900],
+      "usage": "Use Chivo Black (900) or Light (300) for extreme contrast. tracking-tighter."
+    },
+    "body": {
+      "fontFamily": "JetBrains Mono",
+      "import_url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap",
+      "usage": "Use for node contents, code snippets, metadata, and bottom console. leading-relaxed."
+    },
+    "scale_rules": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tighter leading-none",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "body": "text-sm md:text-base",
+      "overline": "uppercase text-xs tracking-[0.2em]"
+    }
+  },
+  "colors": {
+    "background": {
+      "base": "#0A0A0B",
+      "surface": "#121214",
+      "surface_elevated": "#1A1A1E",
+      "canvas_dots": "#3F3F46"
+    },
+    "text": {
+      "primary": "#FAFAFA",
+      "secondary": "#A1A1AA",
+      "muted": "#71717A"
+    },
+    "primary_cta": {
+      "background": "#FAFAFA",
+      "text": "#0A0A0B",
+      "hover": "#E4E4E7",
+      "focus_ring": "#71717A"
+    },
+    "nodes": {
+      "Product Overview": { "bg": "#FAFAFA", "text": "#0A0A0B", "border": "#A1A1AA" },
+      "Feature Scope": { "bg": "#3B82F6", "text": "#FFFFFF", "border": "#2563EB" },
+      "User Stories": { "bg": "#F97316", "text": "#FFFFFF", "border": "#EA580C" },
+      "Technical Architecture": { "bg": "#EAB308", "text": "#0A0A0B", "border": "#CA8A04" },
+      "Database Schema": { "bg": "#10B981", "text": "#0A0A0B", "border": "#059669" },
+      "API Contracts": { "bg": "#EF4444", "text": "#FFFFFF", "border": "#DC2626" },
+      "UI Requirements": { "bg": "#EC4899", "text": "#FFFFFF", "border": "#DB2777" },
+      "Acceptance Criteria": { "bg": "#84CC16", "text": "#0A0A0B", "border": "#65A30D" },
+      "AI Coding Rules": { "bg": "#06B6D4", "text": "#0A0A0B", "border": "#0891B2" },
+      "File References": { "bg": "#94A3B8", "text": "#0A0A0B", "border": "#64748B" },
+      "Deployment Requirements": { "bg": "#F59E0B", "text": "#0A0A0B", "border": "#D97706" },
+      "Testing Instructions": { "bg": "#F43F5E", "text": "#FFFFFF", "border": "#E11D48" }
+    }
+  },
+  "layout_and_spacing": {
+    "strategy": "The 'Control Room' Grid. Dense, data-heavy, precise.",
+    "spacing_scale": "p-1, p-2, p-4, p-6, p-8, p-12. Generous padding inside containers (p-6) to avoid text collision.",
+    "borders": "1px solid #27272A. Sharp edges or max 4px border-radius.",
+    "canvas_layout": {
+      "sidebar": "w-64 border-r border-[#27272A] bg-[#0A0A0B] h-full flex flex-col z-10",
+      "inspector": "w-80 border-l border-[#27272A] bg-[#121214] h-full flex flex-col z-10",
+      "console": "h-64 border-t border-[#27272A] bg-[#0A0A0B] w-full absolute bottom-0 z-20",
+      "canvas": "flex-1 bg-[#0A0A0B] relative overflow-hidden"
+    }
+  },
+  "surfaces_and_micro_themes": {
+    "header": "Solid Background (#0A0A0B) with 1px border-b (#27272A). No glassmorphism to keep it strictly technical.",
+    "nodes": "Terminal Look. Flat solid dark backgrounds for the node body, with strict 1px borders matching the node's category color. The header of each node should use the solid category background color.",
+    "panels": "Grid Borders. border-collapse style. border-r border-b border-[#27272A]."
+  },
+  "components": {
+    "buttons": "Sharp corners (rounded-none or rounded-sm). Hover state must have explicit text color. No generic soft shadows. Use 1px inner stroke.",
+    "inputs": "Shadcn components heavily customized. bg-[#121214], border-[#27272A], focus:ring-1 focus:ring-white.",
+    "canvas": "React Flow. Use Background component with variant='dots' color='#3F3F46'. Edges should be animated when active with a glow effect.",
+    "badges": "Square (rounded-none), uppercase, JetBrains Mono text-xs tracking-widest."
+  },
+  "motion": {
+    "hover": "Instant background color shifts. No slow, muddy transitions.",
+    "nodes": "Selection triggers a sharp 1px offset shadow (neo-brutalist tech style) or a bright colored glow based on the node category.",
+    "edges": "Active edges use standard SVG stroke-dasharray animation."
+  },
+  "icons_and_assets": {
+    "library": "@phosphor-icons/react",
+    "installation": "yarn add @phosphor-icons/react",
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1737505599162-d9932323a889?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMG5vZGVzJTIwY29ubmVjdGluZyUyMG5ldHdvcmslMjBkYXJrfGVufDB8fHx8MTc3ODY0MzExN3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract nodes connecting network. Dark, architectural. Use with bg-black/80 overlay."
+      },
+      {
+        "category": "landing_features",
+        "url": "https://images.unsplash.com/photo-1760548425425-e42e77fa38f1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwxfHxkYXJrJTIwY29kZSUyMGVkaXRvciUyMGFic3RyYWN0fGVufDB8fHx8MTc3ODY0MzEzMnww&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract colorful code editor blocks. Great for landing page feature illustrations."
+      }
+    ]
+  },
+  "testing": {
+    "attributes": "All interactive and key informational elements MUST include `data-testid` attribute (e.g., data-testid='login-submit-button')."
+  },
+  "instructions_to_main_agent": [
+    "Install JetBrains Mono and Chivo fonts from Google Fonts.",
+    "Ensure React Flow is installed and fully customized. The canvas is the hero.",
+    "Build the Left Sidebar (Node Library/Repo Explorer) and Right Inspector (Metadata/AI) with strict 1px borders.",
+    "Node types MUST be color-coded using the palette specified in the colors.nodes block. When a node is dragged onto the canvas, it should have a header of that color.",
+    "For the marketing page, use raw HTML/Tailwind, huge text (Chivo Black), and asymmetric bento grids. Overlay the hero image heavily (bg-black/80) so text is highly legible.",
+    "Apply data-testid to all nodes, sidebar items, auth forms, and canvas controls."
+  ]
+}
