@@ -229,7 +229,7 @@ export default function Console({ projectId, selectedNodeIds }) {
                   for Cursor / Copilot. JSON preserves the full graph.
                 </p>
                 <button
-                  onClick={exportProj}
+                  onClick={() => exportProj()}
                   disabled={loading}
                   className="cf-btn w-full bg-cf-text text-cf-bg py-2 text-[11px] font-bold mt-3 hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   data-testid="export-button"
@@ -237,12 +237,38 @@ export default function Console({ projectId, selectedNodeIds }) {
                   <Export size={11} weight="bold" />
                   {loading ? "EXPORTING..." : "GENERATE EXPORT"}
                 </button>
+                <div className="grid grid-cols-3 gap-1 mt-2">
+                  <button
+                    onClick={() => { setExportFmt("markdown"); exportProj("markdown"); }}
+                    disabled={loading}
+                    className="cf-btn border border-cf-line py-1.5 text-[9px] uppercase tracking-widest font-bold hover:bg-cf-elev transition-colors disabled:opacity-50"
+                    data-testid="export-markdown-button"
+                  >
+                    .MD
+                  </button>
+                  <button
+                    onClick={() => { setExportFmt("json"); exportProj("json"); }}
+                    disabled={loading}
+                    className="cf-btn border border-cf-line py-1.5 text-[9px] uppercase tracking-widest font-bold hover:bg-cf-elev transition-colors disabled:opacity-50"
+                    data-testid="export-json-button"
+                  >
+                    .JSON
+                  </button>
+                  <button
+                    onClick={() => { setExportFmt("agent_pack"); exportProj("agent_pack"); }}
+                    disabled={loading}
+                    className="cf-btn border border-cf-line py-1.5 text-[9px] uppercase tracking-widest font-bold hover:bg-cf-elev transition-colors disabled:opacity-50"
+                    data-testid="export-agent-pack-button"
+                  >
+                    AGENT
+                  </button>
+                </div>
               </>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto bg-cf-bg" data-testid="console-output">
+          <div className="flex-1 overflow-y-auto bg-cf-bg" data-testid="export-output">
             {!output && !loading && (
-              <div className="p-6 text-[11px] text-cf-mute">
+              <div className="p-6 text-[11px] text-cf-mute" data-testid="prompt-output-placeholder">
                 ▸ Output will appear here.
               </div>
             )}
@@ -252,7 +278,7 @@ export default function Console({ projectId, selectedNodeIds }) {
               </div>
             )}
             {output && (
-              <div className="p-4 cf-prose">
+              <div className="p-4 cf-prose" data-testid="prompt-output">
                 <ReactMarkdown>{output}</ReactMarkdown>
               </div>
             )}

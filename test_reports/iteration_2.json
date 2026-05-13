@@ -1,0 +1,59 @@
+{
+  "summary": "Iteration 2 retest. Backend: 20/20 pytest pass (auth, projects, nodes/edges, repo connect+scan octocat/Hello-World branch=master, Claude AI expand + generate-prompt, exports md/json/agent_pack, node-types, 401 enforcement). Frontend: Inspector crash is FIXED — dblclick sidebar-node-feat mounts inspector with title/content/AI-assist/delete and 0 page errors. Preview mode renders markdown. AI assist 'acceptance_criteria' returns 2.6KB. Command palette adds Technical Architecture node. Console prompt engine and all 3 export formats produce non-empty output. Repo connect to octocat/Hello-World on branch 'master' succeeds (API persists repository.file_tree). Logout redirects to /login. TWO issues found: (1) inspector autosave drops title when title and content are changed within the 350ms debounce window — debounce sends only the latest patch and clears prior pending writes; (2) Repo file tree and framework badges do not render in sidebar UI even though backend returns the tree.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Inspector.jsx persist()",
+        "issue": "Autosave debounce drops earlier field patches. persist() calls clearTimeout on each change, then sets a NEW timer that POSTs only the latest patch. If a user changes title and then content within 350ms, the title patch is silently lost and only content is persisted to the backend. Repro: fill title -> immediately fill content -> wait 600ms -> GET /api/nodes returns OLD title with NEW content. Fix: accumulate pending patches in a ref (e.g., pendingRef.current = { ...pendingRef.current, ...patch }) and flush the merged ref on timer fire; reset ref after flush.",
+        "selector": "[data-testid=\"inspector-title\"], [data-testid=\"inspector-content\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Sidebar Repo tab",
+        "issue": "After successful POST /repository (200) and scan, repository.file_tree (1 file for octocat/Hello-World) is stored server-side but NO [data-testid^=\"framework-badge-\"] or any file-tree element renders in the sidebar UI. octocat/Hello-World has zero detected frameworks (correct: README-only repo, badges empty is acceptable) BUT the file tree count = 1 must still render so the user can click a file to attach to a selected node. Without this UI, the 'click file to attach to node' workflow is unreachable from the UI.",
+        "selector": "sidebar repo tab after connect",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Attach file to node from repo tree",
+        "issue": "Cannot exercise because repo file tree never renders in sidebar (see UI bug above). API-level file_references update works (covered by backend tests).",
+        "affected_selectors": ["sidebar-tab-repo", "repo-file-*", "detach-file"]
+      },
+      {
+        "flow": "Edge drag-connect between two nodes",
+        "issue": "Not exercised — React Flow handle drag is brittle in headless Playwright. Backend POST /edges is covered by pytest. Manual visual smoke recommended.",
+        "affected_selectors": ["react-flow__handle"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cortexflow.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "FIX Inspector.jsx autosave: accumulate pending patches in a ref instead of replacing on each keystroke so changing title then content does not silently drop the title write.",
+    "Render repo file tree (and optionally framework badges section) in Sidebar.jsx after connect+scan so users can click a file to attach to the selected node. Add data-testid=\"repo-file-<path>\" per file row. Also expose framework-badge-* for any detected frameworks (octocat repo has none — pick a JS/Py repo for visual verification).",
+    "Project rename via 'project-name-button' on canvas header was not exercised — please verify manually; testid may not exist (was not in our scan).",
+    "Logout currently redirects to /login (review request asked for /). Confirm intended UX; otherwise update navigate target in Dashboard logout handler."
+  ],
+  "critical_code_review_comments": [
+    "Inspector.jsx persist(): debounce loses field-level patches on rapid edits. Use a merged-pending-patch ref pattern.",
+    "Sidebar.jsx repo tab post-connect render path is incomplete — file_tree from API is not iterated into clickable rows.",
+    "server.py @app.on_event('shutdown') is deprecated in FastAPI 0.110+; switch to lifespan context.",
+    "server.py stores GitHub PAT in plaintext on user doc — acceptable for MVP, must encrypt at rest before prod.",
+    "Inspector fix (current = (draft && draft.id===node.id) ? draft : node) is clean and works as intended."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "100% (20/20)", "frontend": "~85% — Inspector flow, AI, palette, prompt, exports all working; repo file tree rendering and title autosave race are the gaps" },
+  "test_credentials": "Registered on the fly: e2e+<ts>@cortexflow.dev / cortexflow123 (per /app/memory/test_credentials.md guidance)",
+  "seed_data_creation": "None persisted — all test projects use ephemeral fresh users.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Inspector crash is FIXED — do not waste time re-verifying. Focus next iteration on (1) re-running the title+content rapid-edit autosave test once the persist() patch-merge fix lands, and (2) verifying sidebar repo file tree rendering with a richer repo such as 'vercel/next.js' on branch 'canary' (which will populate frameworks badges and a non-empty file tree). For the React Flow edge drag, prefer a programmatic addEdge via the app's API mock or use page.mouse.down/move/up over .react-flow__handle.source coordinates obtained via boundingBox.",
+  "rca of the issue": "Autosave race: persist() in Inspector.jsx uses clearTimeout + setTimeout with a single patch object. Each new keystroke replaces the pending patch entirely; the earlier {title: ...} is lost when the next {content: ...} replaces it before the 350ms fires. Fix: store the accumulated patch in a useRef and merge new patches into it; flush the ref on timer fire (then clear). Repo UI: Sidebar.jsx renders connect-repo-button and framework-badge-* only when frameworks > 0, and does not iterate repository.file_tree into clickable rows — main agent must add a file tree list with data-testid=\"repo-file-<path>\" and an onClick that calls onChange(selectedNode.id, { file_references: [...existing, path] })."
+}

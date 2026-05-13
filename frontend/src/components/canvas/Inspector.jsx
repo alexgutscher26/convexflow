@@ -22,14 +22,14 @@ const AI_ACTIONS = [
 ];
 
 export default function Inspector({ node, onChange, onDelete, onClose }) {
-  const [draft, setDraft] = useState(node);
+  const [draft, setDraft] = useState(node || null);
   const [mode, setMode] = useState("edit"); // edit | preview
   const [aiLoading, setAiLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const saveTimer = useRef(null);
 
   useEffect(() => {
-    setDraft(node);
+    setDraft(node || null);
   }, [node?.id]);
 
   if (!node) {
@@ -46,11 +46,13 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
     );
   }
 
-  const cfg = NODE_TYPE_MAP[node.type] || NODE_TYPE_MAP["Product Overview"];
+  // Always read from a guaranteed-defined value
+  const current = draft && draft.id === node.id ? draft : node;
+  const cfg = NODE_TYPE_MAP[current.type] || NODE_TYPE_MAP["Product Overview"];
   const Icon = cfg.icon;
 
   const persist = (patch) => {
-    const merged = { ...draft, ...patch };
+    const merged = { ...current, ...patch };
     setDraft(merged);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -59,7 +61,7 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
   };
 
   const removeFileRef = (path) => {
-    const next = (draft.file_references || []).filter((p) => p !== path);
+    const next = (current.file_references || []).filter((p) => p !== path);
     persist({ file_references: next });
   };
 
@@ -74,7 +76,7 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
       const newContent =
         action === "expand"
           ? data.content
-          : (draft.content || "") + "\n\n" + data.content;
+          : (current.content || "") + "\n\n" + data.content;
       persist({ content: newContent });
       toast.success("AI updated content");
     } catch (e) {
@@ -111,7 +113,7 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
       <div className="px-4 py-3 border-b border-cf-line">
         <span className="overline">TITLE</span>
         <input
-          value={draft.title || ""}
+          value={current.title || ""}
           onChange={(e) => persist({ title: e.target.value })}
           className="mt-1 w-full bg-cf-bg border border-cf-line px-2 py-1.5 text-[13px] font-bold focus:outline-none focus:border-cf-text"
           data-testid="inspector-title"
@@ -146,7 +148,7 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
         </div>
         {mode === "edit" ? (
           <textarea
-            value={draft.content || ""}
+            value={current.content || ""}
             onChange={(e) => persist({ content: e.target.value })}
             rows={10}
             placeholder={cfg.template}
@@ -155,7 +157,7 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
           />
         ) : (
           <div className="bg-cf-bg border border-cf-line p-3 cf-prose max-h-96 overflow-y-auto">
-            <ReactMarkdown>{draft.content || "_(empty)_"}</ReactMarkdown>
+            <ReactMarkdown>{current.content || "_(empty)_"}</ReactMarkdown>
           </div>
         )}
       </div>
@@ -189,13 +191,13 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
 
       <div className="px-4 py-3 border-b border-cf-line">
         <span className="overline mb-2 block">LINKED FILES</span>
-        {(draft.file_references || []).length === 0 ? (
+        {(current.file_references || []).length === 0 ? (
           <p className="text-[11px] text-cf-mute">
             Open the REPO tab in the sidebar and click files to attach.
           </p>
         ) : (
           <ul className="space-y-1">
-            {(draft.file_references || []).map((p) => (
+            {(current.file_references || []).map((p) => (
               <li
                 key={p}
                 className="flex items-center gap-2 text-[11px] bg-cf-bg border border-cf-line px-2 py-1"
