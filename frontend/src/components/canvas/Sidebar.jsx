@@ -69,6 +69,7 @@ function FileTree({ files, onPick }) {
             }
             className="w-full flex items-center gap-1 px-2 py-1 text-[11px] hover:bg-cf-elev text-cf-dim"
             style={{ paddingLeft: it.depth * 10 + 6 }}
+            data-testid={`repo-dir-${it.path}`}
           >
             {open[it.path] ? (
               <CaretDown size={10} />
@@ -85,6 +86,7 @@ function FileTree({ files, onPick }) {
             className="w-full flex items-center gap-1 px-2 py-1 text-[11px] hover:bg-cf-elev text-cf-text"
             style={{ paddingLeft: it.depth * 10 + 6 }}
             title="Attach to selected node"
+            data-testid={`repo-file-${it.path}`}
           >
             <FileIcon size={11} className="text-cf-mute" />
             <span className="truncate">{it.name}</span>

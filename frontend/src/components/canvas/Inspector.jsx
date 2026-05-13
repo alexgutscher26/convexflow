@@ -27,9 +27,12 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const saveTimer = useRef(null);
+  const pendingPatch = useRef({});
 
   useEffect(() => {
     setDraft(node || null);
+    pendingPatch.current = {};
+    if (saveTimer.current) clearTimeout(saveTimer.current);
   }, [node?.id]);
 
   if (!node) {
@@ -54,9 +57,12 @@ export default function Inspector({ node, onChange, onDelete, onClose }) {
   const persist = (patch) => {
     const merged = { ...current, ...patch };
     setDraft(merged);
+    pendingPatch.current = { ...pendingPatch.current, ...patch };
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      onChange(node.id, patch);
+      const toSend = pendingPatch.current;
+      pendingPatch.current = {};
+      onChange(node.id, toSend);
     }, 350);
   };
 
