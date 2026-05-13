@@ -23,6 +23,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from starlette.middleware.cors import CORSMiddleware
 
+from templates import TEMPLATES, TEMPLATE_META
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
@@ -121,6 +123,7 @@ class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = ""
     project_type: Literal["greenfield", "existing", "feature"] = "greenfield"
+    template: str = "blank"  # "blank" | TEMPLATES key
 
 
 class ProjectUpdate(BaseModel):
@@ -238,19 +241,63 @@ async def list_projects(user: dict = Depends(get_current_user)):
 
 @api.post("/projects")
 async def create_project(req: ProjectCreate, user: dict = Depends(get_current_user)):
+    project_id = new_id()
     doc = {
-        "id": new_id(),
+        "id": project_id,
         "name": req.name,
         "description": req.description,
         "project_type": req.project_type,
+        "template": req.template,
         "owner_id": user["id"],
         "repository": None,
         "created_at": now_iso(),
         "updated_at": now_iso(),
     }
     await db.projects.insert_one(doc)
+
+    # Seed graph from template (if not blank)
+    tmpl = TEMPLATES.get(req.template)
+    if tmpl:
+        ref_to_id: dict[str, str] = {}
+        node_docs = []
+        for n in tmpl["nodes"]:
+            nid = new_id()
+            ref_to_id[n["ref"]] = nid
+            node_docs.append({
+                "id": nid,
+                "project_id": project_id,
+                "type": n["type"],
+                "title": n["title"],
+                "content": n["content"],
+                "position_x": n["x"],
+                "position_y": n["y"],
+                "metadata": {"from_template": req.template},
+                "file_references": [],
+                "created_at": now_iso(),
+                "updated_at": now_iso(),
+            })
+        if node_docs:
+            await db.nodes.insert_many(node_docs)
+        edge_docs = []
+        for src_ref, tgt_ref, rel in tmpl["edges"]:
+            edge_docs.append({
+                "id": new_id(),
+                "project_id": project_id,
+                "source_node_id": ref_to_id[src_ref],
+                "target_node_id": ref_to_id[tgt_ref],
+                "relationship_type": rel,
+                "created_at": now_iso(),
+            })
+        if edge_docs:
+            await db.edges.insert_many(edge_docs)
+
     doc.pop("_id", None)
     return doc
+
+
+@api.get("/templates")
+async def list_templates():
+    return {"templates": [{"id": "blank", "label": "Blank", "description": "Empty canvas — build from scratch."}] + TEMPLATE_META}
 
 
 @api.get("/projects/{project_id}")

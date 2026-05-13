@@ -57,6 +57,12 @@ After v1 ship, user uploaded the **Archon PRD** (a near-identical product spec).
 - **Save Prompt as Node**: turns generated prompts into Prompt Output node on canvas via "+ SAVE AS NODE" button
 - **Save indicator** in header (SAVING / SAVED / SYNCED states)
 
+### v3 (Feb 2026, day 1 — Project templates)
+- **Project starter templates**: Blank, SaaS App, CLI Tool, API Service
+- Backend `/api/templates` lists available templates; `POST /api/projects` accepts `template` field and seeds 7–9 typed nodes + 6–9 typed edges with pre-filled content for the chosen template
+- Frontend create-project modal exposes a 2×2 template grid below project-type picker
+- Time-to-first-prompt collapses to <60s for users who pick a template
+
 ## Prioritized backlog (P0/P1/P2)
 
 ### Deferred from Archon PRD (post-MVP)

@@ -14,6 +14,10 @@ export default function Dashboard() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [projectType, setProjectType] = useState("greenfield");
+  const [template, setTemplate] = useState("blank");
+  const [templates, setTemplates] = useState([
+    { id: "blank", label: "Blank", description: "Empty canvas — build from scratch." },
+  ]);
   const [creating, setCreating] = useState(false);
 
   const load = async () => {
@@ -30,6 +34,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     load();
+    api.get("/templates")
+      .then((r) => setTemplates(r.data.templates || []))
+      .catch(() => {});
   }, []);
 
   const create = async (e) => {
@@ -41,8 +48,9 @@ export default function Dashboard() {
         name,
         description,
         project_type: projectType,
+        template,
       });
-      toast.success("Project created");
+      toast.success(template === "blank" ? "Project created" : "Project seeded from template");
       nav(`/app/project/${data.id}`);
     } catch (e) {
       toast.error("Failed to create project");
@@ -226,6 +234,32 @@ export default function Dashboard() {
                     data-testid={`project-type-${t.v}`}
                   >
                     {t.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-6">
+              <span className="overline">START FROM TEMPLATE</span>
+              <div className="grid grid-cols-2 gap-1 mt-2">
+                {templates.map((t) => (
+                  <button
+                    type="button"
+                    key={t.id}
+                    onClick={() => setTemplate(t.id)}
+                    className={`cf-btn border px-3 py-2 text-left transition-colors ${
+                      template === t.id
+                        ? "bg-cf-elev border-cf-text"
+                        : "border-cf-line hover:bg-cf-elev"
+                    }`}
+                    data-testid={`template-${t.id}`}
+                    title={t.description}
+                  >
+                    <div className="text-[10px] uppercase tracking-widest font-bold text-cf-text">
+                      {t.label}
+                    </div>
+                    <div className="text-[9px] text-cf-mute mt-0.5 leading-tight line-clamp-2">
+                      {t.description}
+                    </div>
                   </button>
                 ))}
               </div>
