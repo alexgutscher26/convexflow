@@ -38,6 +38,9 @@ JWT_ALGO = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_EXPIRY_DAYS = int(os.environ.get("JWT_EXPIRY_DAYS", "30"))
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 CLAUDE_MODEL = "claude-sonnet-4-5-20250929"
+USE_LOCAL_LLM = os.environ.get("USE_LOCAL_LLM", "false").lower() == "true"
+LOCAL_LLM_URL = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434/v1")
+LOCAL_LLM_MODEL = os.environ.get("LOCAL_LLM_MODEL", "llama3")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -847,24 +850,63 @@ def _llm_error_to_http(e: Exception) -> HTTPException:
     return HTTPException(status_code=502, detail=f"AI error: {msg[:300]}")
 
 
-def _llm() -> LlmChat:
+class LocalLlmChat:
+    def __init__(self, api_url: str, model: str, system_message: str):
+        self.api_url = api_url.rstrip("/")
+        self.model = model
+        self.system_message = system_message
+
+    def with_model(self, provider: str, model: str):
+        return self
+
+    async def send_message(self, message: UserMessage) -> str:
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": self.system_message},
+                {"role": "user", "content": message.text}
+            ],
+            "stream": False
+        }
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                resp = await client.post(f"{self.api_url}/chat/completions", json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                return data["choices"][0]["message"]["content"]
+            except Exception as e:
+                log.error(f"Local LLM error: {e}")
+                raise e
+
+
+def _llm() -> LlmChat | LocalLlmChat:
+    system_msg = (
+        "You are CortexFlow's architecture co-pilot. You help senior "
+        "engineers design AI-native software. Output crisp, technical "
+        "markdown. Avoid fluff and disclaimers. Use code fences for code.\n\n"
+        "When the user provides project context (graph nodes, prior "
+        "prompts, repository metadata), treat it as authoritative:\n"
+        "- Do not contradict decisions already encoded in the graph.\n"
+        "- Do not duplicate scope already covered by prior prompts.\n"
+        "- Cite node titles when referencing existing components.\n"
+        "- If extending a prior prompt, build on it explicitly; if "
+        "  overriding, call out the change."
+    )
+
+    if USE_LOCAL_LLM:
+        return LocalLlmChat(
+            api_url=LOCAL_LLM_URL,
+            model=LOCAL_LLM_MODEL,
+            system_message=system_msg
+        )
+
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="LLM key not configured")
+
     return LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=new_id(),
-        system_message=(
-            "You are CortexFlow's architecture co-pilot. You help senior "
-            "engineers design AI-native software. Output crisp, technical "
-            "markdown. Avoid fluff and disclaimers. Use code fences for code.\n\n"
-            "When the user provides project context (graph nodes, prior "
-            "prompts, repository metadata), treat it as authoritative:\n"
-            "- Do not contradict decisions already encoded in the graph.\n"
-            "- Do not duplicate scope already covered by prior prompts.\n"
-            "- Cite node titles when referencing existing components.\n"
-            "- If extending a prior prompt, build on it explicitly; if "
-            "  overriding, call out the change."
-        ),
+        system_message=system_msg
     ).with_model("anthropic", CLAUDE_MODEL)
 
 
