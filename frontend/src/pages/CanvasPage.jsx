@@ -22,6 +22,7 @@ import {
   Camera,
   ClockCounterClockwise,
   Warning,
+  Sparkle,
 } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import { NODE_TYPE_MAP, EDGE_RELATIONSHIPS, EDGE_REL_MAP } from "@/lib/nodeTypes";
@@ -153,6 +154,11 @@ function CanvasInner() {
     }
   }, [projectId]);
 
+  const hasPromptNodes = useMemo(
+    () => rawNodes.some((n) => n.type === "Prompt Output"),
+    [rawNodes]
+  );
+
   const runValidation = useCallback(async () => {
     setValidationLoading(true);
     try {
@@ -164,6 +170,46 @@ function CanvasInner() {
       setValidationLoading(false);
     }
   }, [projectId]);
+
+  const [chainLoading, setChainLoading] = useState(false);
+
+  const runPromptChain = useCallback(async () => {
+    setChainLoading(true);
+    const toastId = toast.loading("Analyzing prompt chain pipeline...");
+    try {
+      const { data: orderData } = await api.get(`/projects/${projectId}/prompt-chain-order`);
+      const { order, nodes: orderNodes } = orderData;
+      
+      if (!order || order.length === 0) {
+        toast.dismiss(toastId);
+        toast.error("No 'Prompt Output' nodes found to run in this project.");
+        setChainLoading(false);
+        return;
+      }
+      
+      toast.loading(`Running chain pipeline (${order.length} nodes sorted topologically)...`, { id: toastId });
+      
+      for (let i = 0; i < order.length; i++) {
+        const nodeId = order[i];
+        const nodeInfo = orderNodes.find(n => n.id === nodeId) || {};
+        const title = nodeInfo.title || "Prompt Node";
+        
+        toast.loading(`[${i + 1}/${order.length}] Executing prompt: "${title}"...`, { id: toastId });
+        
+        await api.post(`/nodes/${nodeId}/execute-prompt`);
+        await reloadGraph();
+      }
+      
+      toast.success("Prompt Chain executed successfully!", { id: toastId });
+      runValidation();
+    } catch (e) {
+      toast.dismiss(toastId);
+      const detail = e.response?.data?.detail || "Prompt Chain execution failed";
+      toast.error(detail, { duration: 6000 });
+    } finally {
+      setChainLoading(false);
+    }
+  }, [projectId, reloadGraph, runValidation]);
 
   const scheduleValidation = useCallback(() => {
     if (validationTimer.current) clearTimeout(validationTimer.current);
@@ -658,6 +704,18 @@ function CanvasInner() {
           >
             <ClockCounterClockwise size={10} /> HISTORY
           </Link>
+          {hasPromptNodes && (
+            <button
+              onClick={runPromptChain}
+              disabled={chainLoading}
+              className="cf-btn border border-emerald-600/80 bg-emerald-950/20 hover:bg-emerald-900/40 text-emerald-400 px-2.5 py-1 transition-all flex items-center gap-1.5 font-bold shadow-[0_0_8px_rgba(16,185,129,0.1)]"
+              data-testid="run-prompt-chain"
+              title="Execute all Prompt Output nodes in topological order"
+            >
+              <Sparkle size={10} weight={chainLoading ? "regular" : "fill"} className={chainLoading ? "animate-spin" : ""} />
+              {chainLoading ? "RUNNING CHAIN..." : "RUN CHAIN"}
+            </button>
+          )}
           <button
             onClick={arrangeNodes}
             className="cf-btn border border-cf-line px-2 py-1 hover:bg-cf-elev text-cf-dim hover:text-cf-text transition-colors"

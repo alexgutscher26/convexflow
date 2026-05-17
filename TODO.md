@@ -40,7 +40,7 @@
 - [ ] **Split `server.py` into routers** — the single 1517-line file is unmaintainable; split into `routers/auth.py`, `routers/projects.py`, `routers/nodes.py`, `routers/edges.py`, `routers/ai.py`, `routers/github.py`
 - [ ] **Add `alembic`-equivalent schema migration** — add a `migrations/` pattern for Mongo using `mongomigrations` or a custom version-collection approach
 - [ ] **Snapshot pruning policy** — snapshots accumulate forever; add TTL index or a configurable retention limit (e.g., max 50 per project)
-- [ ] **Optimistic locking on node updates** — concurrent edits to the same node will silently overwrite; add a `version` field with a `$inc` + pre-check pattern
+- [ ] **Optimistic locking on node updates** — concurrent edits to the same node will silently overwrite; add Hello. a `version` field with a `$inc` + pre-check pattern
 - [ ] **Soft-delete for projects/nodes** — hard deletes make recovery impossible; add `deleted_at` field and a restore endpoint
 
 ### Frontend — Core UX

@@ -1580,6 +1580,233 @@ async def save_prompt_node(
     return doc
 
 
+async def _execute_single_prompt_node(node_id: str, user_id: str) -> dict:
+    node = await db.nodes.find_one({"id": node_id})
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+    await assert_project_owner(node["project_id"], user_id)
+    
+    prompt_text = node.get("metadata", {}).get("prompt", "")
+    if not prompt_text:
+        prompt_text = node.get("content", "")
+        # Enforce prompt in metadata so it is not lost on execution
+        if not node.get("metadata"):
+            node["metadata"] = {}
+        node["metadata"]["prompt"] = prompt_text
+
+    # Fetch immediate upstream nodes
+    incoming = await db.edges.find({"target_node_id": node_id}).to_list(100)
+    source_ids = [e["source_node_id"] for e in incoming]
+    upstream_nodes = []
+    if source_ids:
+        upstream_nodes = await db.nodes.find({"id": {"$in": source_ids}}).to_list(100)
+        
+    upstream_blocks = []
+    for u in upstream_nodes:
+        utype = u.get("type", "Unknown")
+        utitle = u.get("title", "Untitled")
+        ucontent = u.get("content", "")
+        upstream_blocks.append(
+            f"### Upstream Node: [{utype}] \"{utitle}\"\n{ucontent}"
+        )
+    
+    upstream_context = "\n\n".join(upstream_blocks) if upstream_blocks else "(None)"
+    
+    # Fetch frameworks and coding rules for grounding
+    project = await db.projects.find_one({"id": node["project_id"]})
+    repo = (project or {}).get("repository") or {}
+    frameworks = repo.get("frameworks") or []
+    rules_nodes = await db.nodes.find(
+        {"project_id": node["project_id"], "type": "AI Coding Rules"}
+    ).to_list(10)
+    
+    general_context = []
+    if frameworks:
+        general_context.append(f"Detected stack: {', '.join(frameworks)}")
+    if rules_nodes:
+        rules_text = "\n".join([r.get("content", "") for r in rules_nodes])
+        general_context.append(f"Coding Rules:\n{rules_text}")
+    gen_ctx_str = "\n\n".join(general_context) if general_context else ""
+
+    # Compile the final prompt
+    full_prompt = (
+        f"# Task / Instruction\n{prompt_text}\n\n"
+        f"# Upstream Context (Authoritative inputs this node references/depends on)\n"
+        f"{upstream_context}\n\n"
+    )
+    if gen_ctx_str:
+        full_prompt += f"# General Coding Conventions\n{gen_ctx_str}\n\n"
+        
+    full_prompt += "Return only the final generated markdown content for this node's output. Do not include any intro, outro, preamble, or wrapper. Just start with the markdown response."
+
+    try:
+        chat = _llm()
+        reply = await chat.send_message(UserMessage(text=full_prompt))
+    except Exception as e:
+        log.exception("AI execute prompt failed")
+        raise _llm_error_to_http(e)
+
+    updated_at = now_iso()
+    metadata = node.get("metadata") or {}
+    metadata.update({
+        "prompt": prompt_text,
+        "executed": True,
+        "executed_at": updated_at,
+    })
+    
+    await db.nodes.update_one(
+        {"id": node_id},
+        {"$set": {
+            "content": reply,
+            "metadata": metadata,
+            "updated_at": updated_at
+        }}
+    )
+    
+    node["content"] = reply
+    node["metadata"] = metadata
+    node["updated_at"] = updated_at
+    return node
+
+
+@api.post("/nodes/{node_id}/execute-prompt")
+async def execute_node_prompt(node_id: str, user: dict = Depends(get_current_user)):
+    res = await _execute_single_prompt_node(node_id, user["id"])
+    res.pop("_id", None)
+    return res
+
+
+@api.get("/projects/{project_id}/prompt-chain-order")
+async def get_prompt_chain_order(project_id: str, user: dict = Depends(get_current_user)):
+    await assert_project_owner(project_id, user["id"])
+    
+    # 1. Fetch all Prompt Output nodes in this project
+    all_nodes = await db.nodes.find(
+        {"project_id": project_id, "type": "Prompt Output"}
+    ).to_list(1000)
+    
+    if not all_nodes:
+        return {"order": []}
+        
+    node_map = {n["id"]: n for n in all_nodes}
+    
+    # 2. Fetch all edges in this project
+    all_edges = await db.edges.find({"project_id": project_id}).to_list(5000)
+    
+    # Build adjacency list: adj[node_id] = list of node_ids that depend on node_id (i.e. node_id is the source, they are targets)
+    adj = {n["id"]: [] for n in all_nodes}
+    in_degree = {n["id"]: 0 for n in all_nodes}
+    
+    for e in all_edges:
+        src = e["source_node_id"]
+        tgt = e["target_node_id"]
+        if src in node_map and tgt in node_map:
+            adj[src].append(tgt)
+            in_degree[tgt] += 1
+            
+    # Topological sort via Kahn's algorithm
+    queue = [nid for nid, deg in in_degree.items() if deg == 0]
+    order = []
+    
+    while queue:
+        queue.sort() # Ensure stable/deterministic order
+        curr = queue.pop(0)
+        order.append(curr)
+        for neighbor in adj[curr]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+                
+    if len(order) < len(all_nodes):
+        raise HTTPException(
+            status_code=400,
+            detail="Cycle detected in your Prompt Chain! Please ensure prompt nodes are connected in a directed acyclic flow (DAG)."
+        )
+        
+    return {"order": order, "nodes": [{"id": nid, "title": node_map[nid].get("title", "Untitled")} for nid in order]}
+
+
+@api.post("/projects/{project_id}/ai/execute-chain")
+async def execute_project_prompt_chain(project_id: str, user: dict = Depends(get_current_user)):
+    await assert_project_owner(project_id, user["id"])
+    
+    # Fetch all Prompt Output nodes in this project
+    all_nodes = await db.nodes.find(
+        {"project_id": project_id, "type": "Prompt Output"}
+    ).to_list(1000)
+    
+    if not all_nodes:
+        raise HTTPException(
+            status_code=400,
+            detail="No 'Prompt Output' nodes found in this project canvas to chain."
+        )
+        
+    node_map = {n["id"]: n for n in all_nodes}
+    
+    # Fetch all edges in this project
+    all_edges = await db.edges.find({"project_id": project_id}).to_list(5000)
+    
+    # Build adjacency list: adj[node_id] = list of node_ids that depend on node_id (i.e. node_id is the source, they are targets)
+    adj = {n["id"]: [] for n in all_nodes}
+    in_degree = {n["id"]: 0 for n in all_nodes}
+    
+    for e in all_edges:
+        src = e["source_node_id"]
+        tgt = e["target_node_id"]
+        if src in node_map and tgt in node_map:
+            adj[src].append(tgt)
+            in_degree[tgt] += 1
+            
+    # Topological sort via Kahn's algorithm
+    queue = [nid for nid, deg in in_degree.items() if deg == 0]
+    order = []
+    
+    while queue:
+        queue.sort() # Ensure deterministic ordering
+        curr = queue.pop(0)
+        order.append(curr)
+        for neighbor in adj[curr]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+                
+    if len(order) < len(all_nodes):
+        raise HTTPException(
+            status_code=400,
+            detail="Cycle detected in your Prompt Chain! Please ensure prompt nodes are connected in a directed acyclic flow (DAG)."
+        )
+        
+    # Execute sequentially
+    results = []
+    for nid in order:
+        updated_node = await _execute_single_prompt_node(nid, user["id"])
+        results.append({
+            "id": nid,
+            "title": updated_node.get("title", "Untitled"),
+            "preview": (updated_node.get("content") or "")[:200]
+        })
+        
+    # Capture snapshot of the executed state
+    await _capture_snapshot(
+        project_id,
+        "manual",
+        "Prompt Chain Execution",
+        {
+            "executed_nodes": [r["id"] for r in results],
+            "execution_order": order
+        }
+    )
+    
+    # Update project timestamp
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"updated_at": now_iso()}}
+    )
+    
+    return {"ok": True, "executed_order": order, "nodes": results}
+
+
+
 # ---------- export ----------
 def _build_cursorrules(project: dict, nodes: list[dict]) -> str:
     """Compile a Cursor-compatible .cursorrules file from a project graph.

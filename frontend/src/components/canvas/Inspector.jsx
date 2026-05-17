@@ -81,6 +81,23 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
     persist({ file_references: next });
   };
 
+  const runSinglePromptNode = async () => {
+    setAiLoading(true);
+    try {
+      const { data } = await api.post(`/nodes/${node.id}/execute-prompt`);
+      onChange(node.id, {
+        content: data.content,
+        metadata: data.metadata,
+      });
+      setDraft(data);
+      toast.success("Prompt executed successfully");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Execution failed");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const runAI = async (action) => {
     setAiLoading(true);
     setAiOpen(false);
@@ -146,47 +163,128 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
         />
       </div>
 
-      <div className="px-4 py-3 border-b border-cf-line">
-        <div className="flex items-center justify-between mb-2">
-          <span className="overline">CONTENT (MARKDOWN)</span>
-          <div className="flex border border-cf-line">
+      {current.type === "Prompt Output" ? (
+        <>
+          <div className="px-4 py-3 border-b border-cf-line bg-zinc-950/20">
+            <span className="overline text-[10px] text-emerald-400 tracking-wider mb-2 block flex items-center gap-1.5">
+              <Sparkle size={12} weight="fill" />
+              PROMPT / INSTRUCTION
+            </span>
+            <textarea
+              value={current.metadata?.prompt || current.content || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                persist({
+                  metadata: {
+                    ...(current.metadata || {}),
+                    prompt: val
+                  }
+                });
+              }}
+              rows={6}
+              placeholder="e.g. Generate a MongoDB schema for a SaaS billing system..."
+              className="w-full bg-cf-bg border border-cf-line px-2 py-1.5 text-[12px] focus:outline-none focus:border-cf-text resize-y font-mono"
+              data-testid="inspector-prompt-instruction"
+            />
+          </div>
+
+          <div className="px-4 py-3 border-b border-cf-line">
+            <div className="flex items-center justify-between mb-2">
+              <span className="overline">GENERATED OUTPUT</span>
+              <div className="flex border border-cf-line">
+                <button
+                  onClick={() => setMode("edit")}
+                  className={`px-2 py-0.5 text-[9px] uppercase tracking-widest ${
+                    mode === "edit" ? "bg-cf-elev text-cf-text" : "text-cf-dim"
+                  }`}
+                  data-testid="inspector-mode-edit"
+                >
+                  <PencilSimple size={10} className="inline mr-1" />
+                  EDIT
+                </button>
+                <button
+                  onClick={() => setMode("preview")}
+                  className={`px-2 py-0.5 text-[9px] uppercase tracking-widest border-l border-cf-line ${
+                    mode === "preview" ? "bg-cf-elev text-cf-text" : "text-cf-dim"
+                  }`}
+                  data-testid="inspector-mode-preview"
+                >
+                  <Eye size={10} className="inline mr-1" />
+                  PREVIEW
+                </button>
+              </div>
+            </div>
+            {mode === "edit" ? (
+              <textarea
+                value={current.content || ""}
+                onChange={(e) => persist({ content: e.target.value })}
+                rows={8}
+                placeholder="No output generated yet. Edit prompt above and click 'RUN NODE' to execute."
+                className="w-full bg-cf-bg border border-cf-line px-2 py-1.5 text-[12px] focus:outline-none focus:border-cf-text resize-y font-mono"
+                data-testid="inspector-content"
+              />
+            ) : (
+              <div className="bg-cf-bg border border-cf-line p-3 cf-prose max-h-64 overflow-y-auto">
+                <SafeMarkdown>{current.content || "_(empty)_"}</SafeMarkdown>
+              </div>
+            )}
+          </div>
+
+          <div className="px-4 py-3 border-b border-cf-line">
             <button
-              onClick={() => setMode("edit")}
-              className={`px-2 py-0.5 text-[9px] uppercase tracking-widest ${
-                mode === "edit" ? "bg-cf-elev text-cf-text" : "text-cf-dim"
-              }`}
-              data-testid="inspector-mode-edit"
+              onClick={runSinglePromptNode}
+              disabled={aiLoading}
+              className="cf-btn w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 text-[11px] uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2 border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.15)] hover:shadow-[0_0_16px_rgba(16,185,129,0.3)] duration-200"
+              data-testid="inspector-run-node"
             >
-              <PencilSimple size={10} className="inline mr-1" />
-              EDIT
-            </button>
-            <button
-              onClick={() => setMode("preview")}
-              className={`px-2 py-0.5 text-[9px] uppercase tracking-widest border-l border-cf-line ${
-                mode === "preview" ? "bg-cf-elev text-cf-text" : "text-cf-dim"
-              }`}
-              data-testid="inspector-mode-preview"
-            >
-              <Eye size={10} className="inline mr-1" />
-              PREVIEW
+              <Sparkle size={12} weight={aiLoading ? "regular" : "fill"} className={aiLoading ? "animate-spin" : ""} />
+              {aiLoading ? "GENERATING OUTPUT..." : "RUN NODE"}
             </button>
           </div>
+        </>
+      ) : (
+        <div className="px-4 py-3 border-b border-cf-line">
+          <div className="flex items-center justify-between mb-2">
+            <span className="overline">CONTENT (MARKDOWN)</span>
+            <div className="flex border border-cf-line">
+              <button
+                onClick={() => setMode("edit")}
+                className={`px-2 py-0.5 text-[9px] uppercase tracking-widest ${
+                  mode === "edit" ? "bg-cf-elev text-cf-text" : "text-cf-dim"
+                }`}
+                data-testid="inspector-mode-edit"
+              >
+                <PencilSimple size={10} className="inline mr-1" />
+                EDIT
+              </button>
+              <button
+                onClick={() => setMode("preview")}
+                className={`px-2 py-0.5 text-[9px] uppercase tracking-widest border-l border-cf-line ${
+                  mode === "preview" ? "bg-cf-elev text-cf-text" : "text-cf-dim"
+                }`}
+                data-testid="inspector-mode-preview"
+              >
+                <Eye size={10} className="inline mr-1" />
+                PREVIEW
+              </button>
+            </div>
+          </div>
+          {mode === "edit" ? (
+            <textarea
+              value={current.content || ""}
+              onChange={(e) => persist({ content: e.target.value })}
+              rows={10}
+              placeholder={cfg.template}
+              className="w-full bg-cf-bg border border-cf-line px-2 py-1.5 text-[12px] focus:outline-none focus:border-cf-text resize-y font-mono"
+              data-testid="inspector-content"
+            />
+          ) : (
+            <div className="bg-cf-bg border border-cf-line p-3 cf-prose max-h-96 overflow-y-auto">
+              <SafeMarkdown>{current.content || "_(empty)_"}</SafeMarkdown>
+            </div>
+          )}
         </div>
-        {mode === "edit" ? (
-          <textarea
-            value={current.content || ""}
-            onChange={(e) => persist({ content: e.target.value })}
-            rows={10}
-            placeholder={cfg.template}
-            className="w-full bg-cf-bg border border-cf-line px-2 py-1.5 text-[12px] focus:outline-none focus:border-cf-text resize-y font-mono"
-            data-testid="inspector-content"
-          />
-        ) : (
-          <div className="bg-cf-bg border border-cf-line p-3 cf-prose max-h-96 overflow-y-auto">
-            <SafeMarkdown>{current.content || "_(empty)_"}</SafeMarkdown>
-          </div>
-        )}
-      </div>
+      )}
 
       <div className="px-4 py-3 border-b border-cf-line relative">
         <button
