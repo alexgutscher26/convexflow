@@ -14,6 +14,7 @@ ConvexFlow (also known as CortexFlow MVP) is a full-stack application for managi
 ## Tech Stack
 
 ### Frontend
+
 - **Framework**: React (bootstrapped with Create React App / craco)
 - **Styling**: Tailwind CSS, Radix UI components
 - **State Management**: Zustand
@@ -22,6 +23,7 @@ ConvexFlow (also known as CortexFlow MVP) is a full-stack application for managi
 - **API Client**: Axios
 
 ### Backend
+
 - **Framework**: FastAPI (Python)
 - **Database**: MongoDB (Motor for async operations)
 - **Authentication**: PyJWT, Bcrypt
@@ -30,6 +32,7 @@ ConvexFlow (also known as CortexFlow MVP) is a full-stack application for managi
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (v18+)
 - Python (3.10+)
 - MongoDB instance running locally or via Atlas
@@ -37,23 +40,26 @@ ConvexFlow (also known as CortexFlow MVP) is a full-stack application for managi
 ### Backend Setup
 
 1. Navigate to the backend directory:
+
    ```bash
    cd backend
    ```
 
 2. Create a virtual environment and install dependencies:
+
    ```bash
    python -m venv venv
    # On Windows:
    venv\Scripts\activate
    # On macOS/Linux:
    source venv/bin/activate
-   
+
    pip install -r requirements.txt
    ```
 
 3. Configure environment variables:
    Ensure you have a `.env` file in the `backend` directory. Here is an example of what it should contain:
+
    ```env
    MONGO_URL=mongodb://localhost:27017
    DB_NAME=convexflow
@@ -67,19 +73,26 @@ ConvexFlow (also known as CortexFlow MVP) is a full-stack application for managi
    ```
 
 4. Start the backend server:
+   If you are in the project root directory:
    ```bash
-   uvicorn server:app --reload
+   python -m uvicorn server:app --reload --app-dir backend
+   ```
+   Or if you are already inside the `backend` directory:
+   ```bash
+   python -m uvicorn server:app --reload
    ```
    The API will be available at `http://localhost:8000`.
 
 ### Frontend Setup
 
 1. Navigate to the frontend directory:
+
    ```bash
    cd frontend
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    # or

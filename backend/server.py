@@ -5,6 +5,7 @@ sync, Claude Sonnet 4.5 powered AI helpers, and PRD export.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import uuid
@@ -38,6 +39,8 @@ DB_NAME = os.environ["DB_NAME"]
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGO = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_EXPIRY_DAYS = int(os.environ.get("JWT_EXPIRY_DAYS", "30"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 CLAUDE_MODEL = "claude-sonnet-4-5-20250929"
 USE_LOCAL_LLM = os.environ.get("USE_LOCAL_LLM", "false").lower() == "true"
@@ -57,10 +60,47 @@ try:
 except Exception as _fernet_err:
     raise RuntimeError(f"PAT_ENCRYPTION_KEY is invalid: {_fernet_err}") from _fernet_err
 
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+client = None
+
+class DatabaseProxy:
+    def _get_db(self):
+        global client
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+            
+        if loop is None:
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = None
+
+        if client is None:
+            client = AsyncIOMotorClient(MONGO_URL)
+        else:
+            client_loop = getattr(client, "io_loop", None) or getattr(getattr(client, "delegate", None), "_io_loop", None)
+            if client_loop is None or getattr(client_loop, "is_closed", lambda: True)() or (loop is not None and client_loop != loop):
+                client = AsyncIOMotorClient(MONGO_URL)
+            
+        return client[DB_NAME]
+
+    def __getattr__(self, name):
+        return getattr(self._get_db(), name)
+
+    def __getitem__(self, name):
+        return self._get_db()[name]
+
+db = DatabaseProxy()
 
 app = FastAPI(title="CortexFlow API")
+
+@app.on_event("startup")
+async def startup_event():
+    # Create TTL and search indexes on refresh_tokens
+    await db.refresh_tokens.create_index("expires_at", expireAfterSeconds=0)
+    await db.refresh_tokens.create_index("user_id")
+
 api = APIRouter(prefix="/api")
 security = HTTPBearer(auto_error=False)
 
@@ -106,12 +146,34 @@ def verify_password(pw: str, hashed: str) -> bool:
         return False
 
 
-def create_token(user_id: str) -> str:
+def create_access_token(user_id: str) -> str:
     payload = {
         "sub": user_id,
+        "jti": new_id(),
         "iat": datetime.now(timezone.utc),
-        "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRY_DAYS),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        "type": "access",
     }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+
+
+async def create_refresh_token(user_id: str) -> str:
+    jti = new_id()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    payload = {
+        "sub": user_id,
+        "jti": jti,
+        "iat": datetime.now(timezone.utc),
+        "exp": expires_at,
+        "type": "refresh",
+    }
+    await db.refresh_tokens.insert_one({
+        "id": jti,
+        "user_id": user_id,
+        "expires_at": expires_at,
+        "revoked": False,
+        "created_at": now_iso(),
+    })
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
 
@@ -122,6 +184,8 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Missing token")
     try:
         payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALGO])
+        if payload.get("type", "access") != "access":
+            raise HTTPException(status_code=401, detail="Invalid token type")
         user_id = payload["sub"]
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -154,7 +218,12 @@ class LoginReq(BaseModel):
 
 class TokenResp(BaseModel):
     token: str
+    refresh_token: str
     user: dict
+
+
+class RefreshReq(BaseModel):
+    refresh_token: str
 
 
 class ProjectCreate(BaseModel):
@@ -298,7 +367,11 @@ async def register(req: RegisterReq):
     }
     await db.users.insert_one(doc)
     safe = {"id": user_id, "email": doc["email"], "name": doc["name"]}
-    return {"token": create_token(user_id), "user": safe}
+    return {
+        "token": create_access_token(user_id),
+        "refresh_token": await create_refresh_token(user_id),
+        "user": safe,
+    }
 
 
 @api.post("/auth/login", response_model=TokenResp)
@@ -307,7 +380,63 @@ async def login(req: LoginReq):
     if not user or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     safe = {"id": user["id"], "email": user["email"], "name": user["name"]}
-    return {"token": create_token(user["id"]), "user": safe}
+    return {
+        "token": create_access_token(user["id"]),
+        "refresh_token": await create_refresh_token(user["id"]),
+        "user": safe,
+    }
+
+
+@api.post("/auth/refresh", response_model=TokenResp)
+async def refresh_token_endpoint(req: RefreshReq):
+    try:
+        payload = jwt.decode(req.refresh_token, JWT_SECRET, algorithms=[JWT_ALGO])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        jti = payload["jti"]
+        user_id = payload["sub"]
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    token_doc = await db.refresh_tokens.find_one({"id": jti})
+    if not token_doc:
+        raise HTTPException(status_code=401, detail="Refresh token not found")
+
+    if token_doc.get("revoked", False):
+        # Suspected reuse attack: revoke all tokens for this user!
+        log.warning(f"Suspected refresh token reuse attack for user {user_id}! Revoking all tokens.")
+        await db.refresh_tokens.update_many(
+            {"user_id": user_id},
+            {"$set": {"revoked": True}}
+        )
+        raise HTTPException(status_code=401, detail="Token revoked")
+
+    # Rotate token: revoke current and issue a new one
+    await db.refresh_tokens.update_one({"id": jti}, {"$set": {"revoked": True}})
+    
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+        
+    new_access = create_access_token(user_id)
+    new_refresh = await create_refresh_token(user_id)
+    return {
+        "token": new_access,
+        "refresh_token": new_refresh,
+        "user": user,
+    }
+
+
+@api.post("/auth/logout")
+async def logout_endpoint(req: RefreshReq):
+    try:
+        payload = jwt.decode(req.refresh_token, JWT_SECRET, algorithms=[JWT_ALGO])
+        if payload.get("type") == "refresh":
+            jti = payload["jti"]
+            await db.refresh_tokens.update_one({"id": jti}, {"$set": {"revoked": True}})
+    except jwt.PyJWTError:
+        pass
+    return {"ok": True}
 
 
 @api.get("/auth/me")
@@ -479,6 +608,7 @@ async def delete_project(project_id: str, user: dict = Depends(get_current_user)
     await db.projects.delete_one({"id": project_id})
     await db.nodes.delete_many({"project_id": project_id})
     await db.edges.delete_many({"project_id": project_id})
+    await db.snapshots.delete_many({"project_id": project_id})
     return {"ok": True}
 
 
@@ -557,6 +687,16 @@ async def create_edge(
     project_id: str, req: EdgeIn, user: dict = Depends(get_current_user)
 ):
     await assert_project_owner(project_id, user["id"])
+    
+    # Verify both source and target nodes exist and belong to this project
+    source_node = await db.nodes.find_one({"id": req.source_node_id, "project_id": project_id})
+    target_node = await db.nodes.find_one({"id": req.target_node_id, "project_id": project_id})
+    if not source_node or not target_node:
+        raise HTTPException(
+            status_code=400,
+            detail="Source or target node not found in this project",
+        )
+
     doc = {
         "id": new_id(),
         "project_id": project_id,

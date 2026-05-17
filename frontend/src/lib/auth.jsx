@@ -28,6 +28,7 @@ export function AuthProvider({ children }) {
       })
       .catch(() => {
         localStorage.removeItem("cf_token");
+        localStorage.removeItem("cf_refresh_token");
         localStorage.removeItem("cf_user");
         setUser(null);
       })
@@ -37,6 +38,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
     localStorage.setItem("cf_token", data.token);
+    localStorage.setItem("cf_refresh_token", data.refresh_token);
     localStorage.setItem("cf_user", JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
@@ -45,13 +47,23 @@ export function AuthProvider({ children }) {
   const register = async (email, password, name) => {
     const { data } = await api.post("/auth/register", { email, password, name });
     localStorage.setItem("cf_token", data.token);
+    localStorage.setItem("cf_refresh_token", data.refresh_token);
     localStorage.setItem("cf_user", JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const refreshToken = localStorage.getItem("cf_refresh_token");
+    if (refreshToken) {
+      try {
+        await api.post("/auth/logout", { refresh_token: refreshToken });
+      } catch (err) {
+        console.error("Logout request failed:", err);
+      }
+    }
     localStorage.removeItem("cf_token");
+    localStorage.removeItem("cf_refresh_token");
     localStorage.removeItem("cf_user");
     setUser(null);
   };
