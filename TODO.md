@@ -210,16 +210,16 @@
 
 ## 📋 QUICK WINS (< 2 hours each)
 
-- [ ] Move `import base64` out of the loop in `scan_repo` (it's re-imported on every iteration)
-- [ ] Add `Content-Security-Policy` and `X-Content-Type-Options` response headers via FastAPI middleware
-- [ ] Add `.editorconfig` file to enforce consistent indentation across the repo
+- [x] Move `import base64` out of the loop in `scan_repo` (it's re-imported on every iteration)
+- [x] Add `Content-Security-Policy` and `X-Content-Type-Options` response headers via FastAPI middleware
+- [x] Add `.editorconfig` file to enforce consistent indentation across the repo
 - [ ] Pin all `requirements.txt` versions to exact versions for reproducible builds
 - [ ] Add a `CHANGELOG.md` and start tracking changes using Keep a Changelog format
 - [ ] Add `"engines"` field to `frontend/package.json` to enforce Node.js version
 - [ ] Add `robots.txt` and `sitemap.xml` for the landing page
 - [ ] Add `<meta name="description">` and Open Graph tags to `public/index.html`
-- [ ] Remove unused `pandas` and `numpy` from `requirements.txt` (not used anywhere in `server.py`)
-- [ ] Rename the app title from `"CortexFlow API"` in `server.py:48` to `"ConvexFlow API"` to match the project name
+- [ ] Rename the app title from `"CortexFlow API"` in `server.py:48` to `"ConvexFlow API"` to mat
+- [ ] Remove unused `pandas` and `numpy` from `requirements.txt` (not used anywhere in `server.py`)ch the project name
 - [ ] Add `favicon.ico` for the web app (currently missing)
 - [ ] Display the current app version in the UI footer (read from `package.json`)
 - [ ] Add `SECURITY.md` file with responsible disclosure policy

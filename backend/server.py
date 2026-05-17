@@ -6,6 +6,7 @@ sync, Claude Sonnet 4.5 powered AI helpers, and PRD export.
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import os
 import uuid
@@ -20,7 +21,7 @@ import httpx
 import jwt
 from dotenv import load_dotenv
 from emergentintegrations.llm.chat import LlmChat, UserMessage
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -94,6 +95,33 @@ class DatabaseProxy:
 db = DatabaseProxy()
 
 app = FastAPI(title="CortexFlow API")
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    
+    # Content-Security-Policy (CSP)
+    csp_directives = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net",
+        "connect-src 'self' https://api.github.com http://localhost:11434 http://127.0.0.1:11434 https://api.openai.com https://api.anthropic.com",
+        "frame-ancestors 'none'",
+    ]
+    response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
+    
+    # X-Content-Type-Options: prevent MIME-sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    
+    # X-Frame-Options: prevent clickjacking
+    response.headers["X-Frame-Options"] = "DENY"
+    
+    # X-XSS-Protection: legacy browser XSS protection
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    return response
 
 @app.on_event("startup")
 async def startup_event():
@@ -835,7 +863,6 @@ async def scan_repo(project_id: str, user: dict = Depends(get_current_user)):
                     f"https://api.github.com/repos/{owner}/{name}/contents/{signal_file}?ref={branch}",
                     pat,
                 )
-                import base64
                 raw = base64.b64decode(contents.get("content", "")).decode(
                     "utf-8", errors="ignore"
                 ).lower()
@@ -854,7 +881,6 @@ async def scan_repo(project_id: str, user: dict = Depends(get_current_user)):
                     f"https://api.github.com/repos/{owner}/{name}/contents/{cand}?ref={branch}",
                     pat,
                 )
-                import base64
                 readme = base64.b64decode(contents.get("content", "")).decode(
                     "utf-8", errors="ignore"
                 )[:2500]
