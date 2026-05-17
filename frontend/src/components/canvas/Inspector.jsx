@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import SafeMarkdown from "@/components/ui/SafeMarkdown";
 import { toast } from "sonner";
 import {
   Trash,
@@ -183,7 +183,7 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
           />
         ) : (
           <div className="bg-cf-bg border border-cf-line p-3 cf-prose max-h-96 overflow-y-auto">
-            <ReactMarkdown>{current.content || "_(empty)_"}</ReactMarkdown>
+            <SafeMarkdown>{current.content || "_(empty)_"}</SafeMarkdown>
           </div>
         )}
       </div>

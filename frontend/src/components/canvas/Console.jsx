@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import SafeMarkdown from "@/components/ui/SafeMarkdown";
 import { toast } from "sonner";
 import {
   Sparkle,
@@ -399,7 +399,7 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated, val
             )}
             {output && (
               <div className="p-4 cf-prose" data-testid="prompt-output">
-                <ReactMarkdown>{output}</ReactMarkdown>
+                <SafeMarkdown>{output}</SafeMarkdown>
               </div>
             )}
           </div>

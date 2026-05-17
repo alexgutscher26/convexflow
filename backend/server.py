@@ -24,7 +24,9 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+import re
+import unicodedata
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from starlette.middleware.cors import CORSMiddleware
 
 from templates import TEMPLATES, TEMPLATE_META
@@ -268,6 +270,39 @@ class ProjectUpdate(BaseModel):
     project_type: Optional[Literal["greenfield", "existing", "feature"]] = None
 
 
+def sanitize_and_normalize_text(v: str, max_len: int = 30000) -> str:
+    if not isinstance(v, str):
+        return v
+    # 1. Unicode NFKC Normalization
+    v = unicodedata.normalize("NFKC", v)
+    
+    # 2. Strip Zero-Width and control characters to prevent evasion of length checks
+    v = re.sub(r'[\u200b-\u200d\ufeff\u202a-\u202e]', '', v)
+    
+    # 3. Strip malicious HTML tags, embedded scripts, and inline events
+    dangerous_patterns = [
+        (r'(?i)<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', ''),
+        (r'(?i)<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>', ''),
+        (r'(?i)<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>', ''),
+        (r'(?i)<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>', ''),
+        (r'(?i)<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>', ''),
+        (r'(?i)<link\b[^>]*>', ''),
+        (r'(?i)<meta\b[^>]*>', ''),
+        (r'(?i)<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>', ''),
+        (r'(?i)javascript:\s*[^\s"\'>)]*', ''),
+        (r'(?i)\bon[a-z]+\s*=\s*["\'][^"\']*["\']', ''),
+        (r'(?i)\bon[a-z]+\s*=\s*[^\s>]+', '')
+    ]
+    for pattern, repl in dangerous_patterns:
+        v = re.sub(pattern, repl, v)
+        
+    # 4. Strict Length Check (DoS protection)
+    if len(v) > max_len:
+        raise ValueError(f"Input exceeds maximum allowed length of {max_len} characters")
+        
+    return v
+
+
 class NodeIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     type: str
@@ -276,6 +311,20 @@ class NodeIn(BaseModel):
     position_x: float = 0
     position_y: float = 0
     metadata: dict = Field(default_factory=dict)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def validate_title(cls, v: Any) -> str:
+        if v is None:
+            return ""
+        return sanitize_and_normalize_text(str(v), max_len=120)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def validate_content(cls, v: Any) -> str:
+        if v is None:
+            return ""
+        return sanitize_and_normalize_text(str(v), max_len=30000)
 
 
 class NodeUpdate(BaseModel):
@@ -286,6 +335,20 @@ class NodeUpdate(BaseModel):
     position_y: Optional[float] = None
     metadata: Optional[dict] = None
     file_references: Optional[list[str]] = None
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def validate_title(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        return sanitize_and_normalize_text(str(v), max_len=120)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def validate_content(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        return sanitize_and_normalize_text(str(v), max_len=30000)
 
 
 class NodePosition(BaseModel):

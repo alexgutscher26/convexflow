@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
+import SafeMarkdown from "@/components/ui/SafeMarkdown";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -221,7 +221,7 @@ function SnapshotDetail({ snapshot, onBack }) {
             </span>
           </div>
           <div className="p-4 cf-prose max-h-[60vh] overflow-y-auto">
-            <ReactMarkdown>{meta.prompt_text}</ReactMarkdown>
+            <SafeMarkdown>{meta.prompt_text}</SafeMarkdown>
           </div>
         </div>
       )}
@@ -233,7 +233,7 @@ function SnapshotDetail({ snapshot, onBack }) {
           </div>
           <div className="p-4 cf-prose max-h-[60vh] overflow-y-auto">
             {typeof meta.export_content === "string" ? (
-              <ReactMarkdown>{meta.export_content}</ReactMarkdown>
+              <SafeMarkdown>{meta.export_content}</SafeMarkdown>
             ) : (
               <pre className="text-[11px] whitespace-pre-wrap">
                 {JSON.stringify(meta.export_content, null, 2)}
