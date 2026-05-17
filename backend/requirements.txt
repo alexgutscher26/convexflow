@@ -24,3 +24,4 @@ jq==1.11.0
 typer==0.25.1
 httpx==0.28.1
 # emergentintegrations==0.1.0
+slowapi==0.1.9

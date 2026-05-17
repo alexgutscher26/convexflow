@@ -10,7 +10,7 @@
 
 - [x] **[!] Encrypt GitHub PATs at rest** — currently stored in plaintext in MongoDB (`server.py:617`); use Fernet/AES symmetric encryption with a `SECRET_KEY` env var
 - [x] **[!] Add JWT refresh-token flow** — current 30-day access token has no revocation mechanism; add short-lived access tokens + long-lived refresh tokens
-- [ ] **[!] Rate-limit auth endpoints** — `/auth/login` and `/auth/register` are open to brute-force attacks; implement `slowapi` or Redis-backed rate limiting
+- [x] **[!] Rate-limit auth endpoints** — `/auth/login` and `/auth/register` are open to brute-force attacks; implement `slowapi` or Redis-backed rate limiting
 - [ ] **[!] Validate JWT audience/issuer claims** — currently only `sub`, `iat`, `exp` are checked; add `iss` and `aud` claims for defense-in-depth
 - [ ] **[!] Add CSRF protection** — SameSite cookie policy or double-submit cookie pattern for state-mutating endpoints
 - [ ] **[!] Password strength validation** — only a `min_length=6` check exists; enforce complexity rules (uppercase, digit, special char)
@@ -19,8 +19,7 @@
 
 - [ ] **[!] Remove plaintext PAT from API response** — `pat_stored: bool` is returned, but the raw PAT value may leak in logs; audit all logging statements
 - [ ] **[!] Parameterize all MongoDB queries** — audit for NoSQL injection surface; avoid any `eval` or dynamic `$where` clauses
-- [ ] **[!] Add input sanitization for node content** — large or malicious Markdown content could cause DoS via rendering or AI context overflow
-- [x] **[!] Enforce project-level authorization on all node/edge endpoints** — verify `assert_project_owner` is called consistently on every mutating endpoint
+- [ ] **[!] Add input sanitization for node content** — large or sndpoints\*\* — verify `assert_project_owner` is called consistently on every mutating endpoint
 - [ ] **[!] CORS hardening** — replace wildcard `allow_origins=["*"]` with an explicit allowlist from env var
 - [ ] **[!] Secrets never in codebase** — run `git log --all --full-history -- '*.env'` audit; add `gitleaks` to CI
 

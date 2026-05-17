@@ -22,9 +22,14 @@ import jwt
 from dotenv import load_dotenv
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
 import re
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from limits import parse
 import unicodedata
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from starlette.middleware.cors import CORSMiddleware
@@ -96,7 +101,82 @@ class DatabaseProxy:
 
 db = DatabaseProxy()
 
+# Setup slowapi rate limiter
+# Disable in testing environment to allow E2E and unit tests to run seamlessly
+is_testing = os.environ.get("TESTING", "").lower() == "true"
+limiter = Limiter(key_func=get_remote_address, enabled=not is_testing)
+
 app = FastAPI(title="ConvexFlow API")
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    # Premium JSON response format for rate limit violations
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={
+            "detail": "Too many requests. Please wait a few minutes before trying again.",
+            "error": "Rate Limit Exceeded",
+        },
+        headers={"Retry-After": "60"}
+    )
+
+
+def raise_rate_limit_exceeded():
+    from slowapi.wrappers import Limit
+    limit_item = parse("5/minute")
+    limit_obj = Limit(
+        limit=limit_item,
+        key_func=lambda: "ip",
+        scope="auth",
+        per_method=False,
+        methods=None,
+        error_message="Rate Limit Exceeded",
+        exempt_when=None,
+        cost=1,
+        override_defaults=False
+    )
+    raise RateLimitExceeded(limit_obj)
+
+
+async def login_rate_limiter(request: Request):
+    if is_testing:
+        return
+    
+    # Extract client IP, checking X-Forwarded-For for reverse proxies
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0].strip()
+    else:
+        ip = request.client.host or "127.0.0.1"
+        
+    key = f"login:{ip}"
+    
+    # Hit the slowapi storage backend!
+    if not limiter._limiter.hit(parse("5/minute"), key):
+        raise_rate_limit_exceeded()
+
+
+async def register_rate_limiter(request: Request):
+    if is_testing:
+        return
+    
+    # Extract client IP, checking X-Forwarded-For for reverse proxies
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0].strip()
+    else:
+        ip = request.client.host or "127.0.0.1"
+        
+    key = f"register:{ip}"
+    
+    # Hit the slowapi storage backend!
+    if not limiter._limiter.hit(parse("5/minute"), key):
+        raise_rate_limit_exceeded()
+
+# Manually bind concrete Request class to annotations to bypass __future__ string reference parsing
+login_rate_limiter.__annotations__['request'] = Request
+register_rate_limiter.__annotations__['request'] = Request
 
 
 @app.middleware("http")
@@ -452,7 +532,7 @@ def _summarize_snapshot(snap: dict) -> dict:
 
 
 # ---------- auth ----------
-@api.post("/auth/register", response_model=TokenResp)
+@api.post("/auth/register", response_model=TokenResp, dependencies=[Depends(register_rate_limiter)])
 async def register(req: RegisterReq):
     existing = await db.users.find_one({"email": req.email.lower()})
     if existing:
@@ -475,7 +555,7 @@ async def register(req: RegisterReq):
     }
 
 
-@api.post("/auth/login", response_model=TokenResp)
+@api.post("/auth/login", response_model=TokenResp, dependencies=[Depends(login_rate_limiter)])
 async def login(req: LoginReq):
     user = await db.users.find_one({"email": req.email.lower()})
     if not user or not verify_password(req.password, user["password_hash"]):
