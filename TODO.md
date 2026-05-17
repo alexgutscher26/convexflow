@@ -57,7 +57,7 @@
 - [ ] **Multi-select and bulk actions** — allow shift-click or drag-select to select multiple nodes for bulk delete, copy, or group
 - [ ] **Node search / spotlight** — add a Cmd+K command palette that searches nodes by title or content across the current project
 - [ ] **Inline node editing** — double-clicking a node on the canvas should open an inline Markdown editor without navigating to Inspector
-- [ ] **Auto-layout button** — add a "Auto-arrange" action using a DAG layout algorithm (ELK or Dagre, already supported by ReactFlow)
+- [x] **Auto-layout button** — add a "Auto-arrange" action using a DAG layout algorithm (ELK or Dagre, already supported by ReactFlow)
 - [ ] **Node color coding by type** — each node type should have a distinct color/icon for quick visual scanning
 - [ ] **Edge labels and types** — visually distinguish `depends_on`, `constrains`, `implements`, etc. with different edge styles/colors
 - [ ] **Canvas zoom-to-fit on load** — after loading a project, call `fitView()` so all nodes are visible immediately

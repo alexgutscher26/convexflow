@@ -503,17 +503,17 @@ function CanvasInner() {
       })
     );
 
-    // 6. Concurrently update coordinate records in MongoDB
+    // 6. Bulk update coordinate records in MongoDB
     try {
-      await Promise.all(
-        Object.keys(newPositions).map((nodeId) => {
-          const pos = newPositions[nodeId];
-          return api.put(`/nodes/${nodeId}`, {
-            position_x: pos.x,
-            position_y: pos.y,
-          });
-        })
-      );
+      const positionsList = Object.keys(newPositions).map((nodeId) => ({
+        id: nodeId,
+        position_x: newPositions[nodeId].x,
+        position_y: newPositions[nodeId].y,
+      }));
+
+      await api.put(`/projects/${projectId}/nodes/positions`, {
+        positions: positionsList,
+      });
 
       setRawNodes((currentRawNodes) =>
         currentRawNodes.map((rn) => {
@@ -534,7 +534,7 @@ function CanvasInner() {
     } catch (err) {
       toast.error("Auto-arrange sync failed");
     }
-  }, [rawNodes, edges, markSaving, markSaved, setNodes]);
+  }, [rawNodes, edges, markSaving, markSaved, setNodes, projectId]);
 
   if (loading) {
     return (

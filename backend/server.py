@@ -288,6 +288,16 @@ class NodeUpdate(BaseModel):
     file_references: Optional[list[str]] = None
 
 
+class NodePosition(BaseModel):
+    id: str
+    position_x: float
+    position_y: float
+
+
+class BulkPositionsUpdate(BaseModel):
+    positions: list[NodePosition]
+
+
 class EdgeIn(BaseModel):
     source_node_id: str
     target_node_id: str
@@ -701,6 +711,42 @@ async def delete_node(node_id: str, user: dict = Depends(get_current_user)):
         "$or": [{"source_node_id": node_id}, {"target_node_id": node_id}]
     })
     return {"ok": True}
+
+
+@api.put("/projects/{project_id}/nodes/positions")
+async def bulk_update_node_positions(
+    project_id: str, req: BulkPositionsUpdate, user: dict = Depends(get_current_user)
+):
+    await assert_project_owner(project_id, user["id"])
+    if not req.positions:
+        return {"ok": True, "count": 0}
+
+    from pymongo import UpdateOne
+
+    updated_time = now_iso()
+    operations = [
+        UpdateOne(
+            {"id": item.id, "project_id": project_id},
+            {"$set": {
+                "position_x": item.position_x,
+                "position_y": item.position_y,
+                "updated_at": updated_time
+            }}
+        )
+        for item in req.positions
+    ]
+    
+    result = await db.nodes.bulk_write(operations)
+    
+    await db.projects.update_one(
+        {"id": project_id}, {"$set": {"updated_at": updated_time}}
+    )
+    
+    return {
+        "ok": True,
+        "matched_count": result.matched_count,
+        "modified_count": result.modified_count
+    }
 
 
 # ---------- edges ----------

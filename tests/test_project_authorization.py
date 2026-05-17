@@ -15,6 +15,20 @@ client = TestClient(app)
 
 import asyncio
 
+async def perform_safe_cleanup():
+    test_projects = []
+    async for p in server.db.projects.find({"name": {"$regex": "^TEST_.*"}}):
+        test_projects.append(p)
+    test_project_ids = [p["id"] for p in test_projects]
+
+    await server.db.users.delete_many({"email": {"$regex": "^test_auth_.*"}})
+    await server.db.projects.delete_many({"name": {"$regex": "^TEST_.*"}})
+    if test_project_ids:
+        await server.db.nodes.delete_many({"project_id": {"$in": test_project_ids}})
+        await server.db.edges.delete_many({"project_id": {"$in": test_project_ids}})
+        await server.db.snapshots.delete_many({"project_id": {"$in": test_project_ids}})
+
+
 @pytest.fixture(autouse=True)
 def cleanup_db():
     # Run before each test to ensure test users/projects don't collide
@@ -25,17 +39,9 @@ def cleanup_db():
         asyncio.set_event_loop(loop)
         
     if loop.is_running():
-        loop.create_task(server.db.users.delete_many({"email": {"$regex": "^test_auth_.*"}}))
-        loop.create_task(server.db.projects.delete_many({"name": {"$regex": "^TEST_.*"}}))
-        loop.create_task(server.db.nodes.delete_many({}))
-        loop.create_task(server.db.edges.delete_many({}))
-        loop.create_task(server.db.snapshots.delete_many({}))
+        loop.create_task(perform_safe_cleanup())
     else:
-        loop.run_until_complete(server.db.users.delete_many({"email": {"$regex": "^test_auth_.*"}}))
-        loop.run_until_complete(server.db.projects.delete_many({"name": {"$regex": "^TEST_.*"}}))
-        loop.run_until_complete(server.db.nodes.delete_many({}))
-        loop.run_until_complete(server.db.edges.delete_many({}))
-        loop.run_until_complete(server.db.snapshots.delete_many({}))
+        loop.run_until_complete(perform_safe_cleanup())
     yield
 
 
@@ -148,3 +154,63 @@ def test_delete_project_cascades_snapshots():
     # 4. Verify snapshot is also deleted (get snapshot returns 404)
     get_snap_resp = client.get(f"/api/snapshots/{snap_id}", headers=headers)
     assert get_snap_resp.status_code == 404
+
+
+def test_bulk_update_node_positions():
+    email = generate_test_email()
+    password = "password123"
+
+    token = register_and_login(email, password, "User One")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Create a project
+    proj_resp = client.post("/api/projects", headers=headers, json={
+        "name": "TEST_ProjBulkUpdate",
+        "description": "Project Description",
+        "project_type": "greenfield"
+    })
+    assert proj_resp.status_code == 200
+    proj_id = proj_resp.json()["id"]
+
+    # 2. Create Node 1
+    node1_resp = client.post(f"/api/projects/{proj_id}/nodes", headers=headers, json={
+        "type": "Feature Scope",
+        "title": "Node 1",
+        "content": "Content 1",
+        "position_x": 0,
+        "position_y": 0
+    })
+    assert node1_resp.status_code == 200
+    node1_id = node1_resp.json()["id"]
+
+    # 3. Create Node 2
+    node2_resp = client.post(f"/api/projects/{proj_id}/nodes", headers=headers, json={
+        "type": "Feature Scope",
+        "title": "Node 2",
+        "content": "Content 2",
+        "position_x": 10,
+        "position_y": 10
+    })
+    assert node2_resp.status_code == 200
+    node2_id = node2_resp.json()["id"]
+
+    # 4. Perform bulk layout coordinate update
+    bulk_resp = client.put(f"/api/projects/{proj_id}/nodes/positions", headers=headers, json={
+        "positions": [
+            {"id": node1_id, "position_x": 100.5, "position_y": 200.5},
+            {"id": node2_id, "position_x": 300.0, "position_y": -400.0}
+        ]
+    })
+    assert bulk_resp.status_code == 200
+    assert bulk_resp.json()["ok"] is True
+    assert bulk_resp.json()["modified_count"] == 2
+
+    # 5. Verify Node 1 new positions
+    nodes_resp = client.get(f"/api/projects/{proj_id}/nodes", headers=headers)
+    assert nodes_resp.status_code == 200
+    nodes = {n["id"]: n for n in nodes_resp.json()}
+    
+    assert nodes[node1_id]["position_x"] == 100.5
+    assert nodes[node1_id]["position_y"] == 200.5
+    assert nodes[node2_id]["position_x"] == 300.0
+    assert nodes[node2_id]["position_y"] == -400.0
