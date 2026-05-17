@@ -1062,9 +1062,31 @@ AI_INSTRUCTIONS = {
 
 
 def _llm_error_to_http(e: Exception) -> HTTPException:
-    """Convert LiteLLM / emergentintegrations errors into clear HTTP responses."""
+    """Convert LiteLLM / emergentintegrations / HTTPX errors into clear HTTP responses."""
     msg = str(e)
     low = msg.lower()
+    if isinstance(e, httpx.TimeoutException) or "timeout" in low or "timed out" in low:
+        return HTTPException(
+            status_code=504,
+            detail=(
+                "Local LLM request timed out. The local model took too long "
+                "to generate a response (limit: 120s). Please check if your "
+                "local server is overloaded or running on slow hardware."
+            ),
+        )
+    if isinstance(e, (httpx.ConnectError, httpx.ConnectTimeout)) or "connect" in low or "refused" in low:
+        return HTTPException(
+            status_code=503,
+            detail=(
+                "Local LLM server is offline or unreachable. Please make sure "
+                f"your LLM service (Ollama or LM Studio) is active and running at {LOCAL_LLM_URL}."
+            ),
+        )
+    if isinstance(e, httpx.RequestError):
+        return HTTPException(
+            status_code=502,
+            detail=f"Local LLM connection error: {msg[:300]}"
+        )
     if "budget" in low and "exceed" in low:
         return HTTPException(
             status_code=402,
@@ -1087,11 +1109,6 @@ def _llm_error_to_http(e: Exception) -> HTTPException:
                 "'Thread prior prompts' or focusing on fewer nodes."
             ),
         )
-    if "timeout" in low or "timed out" in low:
-        return HTTPException(
-            status_code=504,
-            detail="LLM upstream timed out. Try again with a smaller context.",
-        )
     return HTTPException(status_code=502, detail=f"AI error: {msg[:300]}")
 
 
@@ -1113,7 +1130,7 @@ class LocalLlmChat:
             ],
             "stream": False
         }
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             try:
                 resp = await client.post(f"{self.api_url}/chat/completions", json=payload)
                 resp.raise_for_status()
