@@ -1,162 +1,174 @@
-You are an expert engineer working on Convexflow.
+You are an expert engineer working on ConvexFlow Core System Graph & Roadmap.
+
+Comprehensive live requirements, architectural specifications, and active TODO backlogs of the ConvexFlow application.
 
 Treat the sections below as binding project intelligence — do not contradict the architecture, conventions, or constraints encoded here. Cite node titles when referencing existing components.
 
 # Technical Architecture
-## Stack & layout
-# Stack & layout Enrichment
 
-## Layered Architecture
-### Presentation Layer
-* Next.js with TypeScript and React for client-side rendering
-	+ Use `getStaticProps` and `getServerSideProps` for optimized data fetching
-	+ Leverage `React.memo` to optimize component re-renders
+## System Stack & Topology
 
-### Business Logic Layer
-* Express with Prisma for API gateway and database interaction
-	+ Implement RESTful APIs using Express routers
-	+ Utilize Prisma's ORM capabilities for type-safe database queries
+## Frontend Stack
 
-### Data Storage Layer
-* Postgres as primary database with proper schema design
-	+ Define tables with descriptive names and relationships
-	+ Implement database transactions for atomicity and consistency
+- **Framework**: React 18 (Vite-powered SPA)
+- **Visuals**: ReactFlow v11 for interactive graph rendering
+- **Styling**: Vanilla CSS for high-fidelity custom glassmorphic styling
+- **Networking**: Axios with interceptors for JWT token rotation and authentication lifecycle
 
-## Component Breakdown
-### Core Components
-* `UserProfile` responsible for handling user data retrieval and management
-* `Dashboard` component for rendering core application features
+## Backend Stack
 
-### Utility Components
-* `Loader` for handling async data fetching and loading states
-* `Toast` for displaying notifications and error messages
+- **Web Framework**: FastAPI (Python 3.11+)
+- **WSGI/ASGI**: Uvicorn server
+- **Database Driver**: Motor (asyncio MongoDB driver)
+- **Cryptography**: cryptography.fernet for encrypting GitHub PATs at rest
+- **LLM Integrations**: Claude Sonnet 4.5 via the Emergent integrations platform, with fallback to local Llama 3 models
 
-## Data Flow Revisited
-Client → API (Express) → DB (Postgres)
+## Execution Topology
 
-Note: The above architecture and components are enriched based on the provided node context, upstream nodes, and project coding rules.
+Client Browser (Zustand + ReactFlow) ──[JSON API via JWT]──> FastAPI App ──[Async Driver]──> MongoDB Instance
+
+## AI & Git Integration Backlog
+
+## Next-Gen AI Integrations
+
+- [ ] **Streaming AI Responses**: Implement Server-Sent Events (SSE) on the `/api/ai/expand` endpoint for real-time word streaming.
+- [ ] **Local LLM Providers**: Expand the `LocalLlmChat` implementation with custom headers, model listings, and connection checkers (LM Studio, Ollama).
+- [ ] **AI Chat Drawer**: Add a floating chatbot assistant referencing the full canvas context.
+- [ ] **Hallucination Guard**: Cross-reference AI-generated requirements against actual repository files before displaying them.
+
+## GitHub Workflow Polish
+
+- [ ] **GitHub OAuth Integration**: Transition from insecure raw PAT tokens to full OAuth authorization flow.
+- [ ] **Webhooks for Re-scanning**: Hook `POST /api/github/webhook` to automatically re-scan code trees on git push.
+- [ ] **Code File Previews**: View raw code directly inside the Inspector via authenticated REST requests.
 
 # Database Schema
-## Core entities
-# Core Entities Enrichment
 
-### Entity Definitions
-#### User
-`{id, email, createdAt, profilePicture}`
+## Data Models
 
-* `profilePicture`: URL of the user's profile picture
+## MongoDB Collections & Indexes
 
-#### Resource
-`{ id, ownerId, name, description }`
+### 1. `users`
 
-* `ownerId`: Foreign key referencing the `User` entity
-* `name` and `description`: Human-readable metadata for the resource
+- Schema: `{ id, email, name, password_hash, github_pat, created_at }`
+- Indexes: Unique index on `email`
 
-### Entity Relationship
-- User 1-N Resource (one-to-many)
+### 2. `projects`
 
-### Additional Considerations
+- Schema: `{ id, name, description, project_type, template, owner_id, repository, created_at, updated_at }`
+- Indexes: Compound index on `{ owner_id, updated_at }`
 
-* Use a consistent naming convention across the project, e.g., `UserService` instead of `UserSvc`
-* Leverage the established ORM library for data handling
-* For UI components, utilize the pre-defined component library and best practices from the [Technical Architecture] Stack & layout guidelines
+### 3. `nodes`
 
-### Component Interactions
+- Schema: `{ id, project_id, type, title, content, position_x, position_y, metadata, file_references, created_at, updated_at }`
+- Indexes: Indexes on `project_id`, `id`
 
-* `UserProfile`: responsible for handling user data retrieval and management, including profile picture updates
+### 4. `edges`
+
+- Schema: `{ id, project_id, source_node_id, target_node_id, relationship_type, created_at }`
+- Indexes: Index on `project_id`
+
+### 5. `refresh_tokens`
+
+- Schema: `{ id, user_id, expires_at, revoked, created_at }`
+- Indexes: TTL index on `expires_at`
 
 # API Contracts
-## Endpoints
-# Endpoints Enrichment
 
-## API Contract Enhancements {#api-contract-enhancements}
-Add documentation, example responses, and request bodies to each endpoint:
-```
-GET    /api/resource
-  * Returns list of resources with pagination (max 20 pages)
-  * Example response: `[{"id": 1, "name": "Resource 1"}, ...]`
+## FastAPI Route Definitions
 
-POST   /api/resource
-  * Creates a new resource with the provided data
-  * Request body: `{"id": null, "name": "New Resource"}`
-  * Example response: `{ "id": 10, "name": "New Resource" }`
+## REST API Architecture
 
-GET    /api/resource/{id}
-  * Returns resource details by ID
-  * Example response: `[{"id": 1, "name": "Resource 1"}, ...]`
-```
+### Authentication
 
-## Authentication & Authorization {#auth-and-authorization}
-* JWT bearer token authentication for all API endpoints
-* Utilize Next.js built-in authentication mechanism (`next-auth`) for client-side rendering
-* Employ `express-jwt` middleware for server-side validation
+- `POST /api/auth/register` -> TokenResponse
+- `POST /api/auth/login` -> TokenResponse
+- `POST /api/auth/refresh` -> TokenResponse (rotating JWT flow)
+- `POST /api/auth/logout` -> SuccessResponse (revoking refresh JTI)
+
+### Project Management
+
+- `GET /api/projects` -> List[Project]
+- `POST /api/projects` -> Project
+- `GET /api/projects/{id}` -> Project
+- `PUT /api/projects/{id}` -> Project
+- `DELETE /api/projects/{id}` -> SuccessResponse
+
+### Canvas Data
+
+- `GET /api/projects/{id}/nodes` -> List[Node]
+- `POST /api/projects/{id}/nodes` -> Node
+- `PUT /api/nodes/{id}` -> Node
+- `DELETE /api/nodes/{id}` -> SuccessResponse
+- `GET /api/projects/{id}/edges` -> List[Edge]
+- `POST /api/projects/{id}/edges` -> Edge
+- `DELETE /api/edges/{id}` -> SuccessResponse
+
+### AI & Integrations
+
+- `POST /api/projects/{id}/repository` -> ConnectRepoResponse
+- `POST /api/ai/expand` -> ExpandResponse
+- `POST /api/ai/generate-prompt` -> GeneratePromptResponse
 
 # Coding Rules & Conventions
-## Conventions
-### Conventions
 
-#### Additional Guidelines
+## Development Conventions
 
-* Consistent naming conventions across the entire project:
-    ```java
-    // example: `UserService` instead of `UserSvc`
-    ```
-* Abide by existing abstraction layers:
-    + When dealing with data, use the established ORM (Object-Relational Mapping) library.
-    + For UI components, leverage the pre-defined component library.
+## Python / FastAPI Guidelines
 
-#### Exceptions and Clarifications
+- **Type Safety**: Enforce explicit type hinting on all parameters and function return values.
+- **Validation**: Use Pydantic V2 schemas for every request body and response payload.
+- **Async First**: Utilize non-blocking async DB calls with Motor and async HTTP calls with Httpx.
+- **Security Completed**:
+  - [x] **Encrypt GitHub PATs at rest** — using Fernet/AES symmetric encryption with a dedicated 32-byte key.
+  - [x] **JWT refresh-token flow** — rotating, short-lived access tokens combined with secure refresh tokens to block reuse attacks.
+  - [x] **Enforce project-level auth** — verify `assert_project_owner` consistently handles every state mutation endpoint.
 
-* In the rare case where an existing file conflicts with a new requirement, override it with explicit justification (e.g., in a `README.md` or comment).
-* When inheriting from a base class, ensure you're adding meaningful behavior; use abstract classes or composition instead of simple inheritance.
+## Frontend / React Guidelines
 
-#### Best Practices
+- **Component Design**: Keep components modular, small, and reusable. Avoid inline styles; utilize vanilla utility classes and clean CSS tokens.
+- **State Management**: Use Zustand for lightweight, centralized global state (auth, project metadata, canvas layout).
 
-* Favor code readability over brevity. Write comments and docstrings that provide context without duplicating the code's intent.
-* Consider using a static analysis tool to verify adherence to these conventions.
+## Security & Hardening Backlog
+
+## Authentication Hardening
+
+- [ ] **Rate Limiting**: Integrate `slowapi` or Redis-backed limits on `/api/auth/login` and `/api/auth/register` to block brute-force attempts.
+- [ ] **CSRF Defense**: Enforce SameSite cookie policies and double-submit tokens on mutating endpoints.
+- [ ] **Password Enforcements**: Require strong passwords (digits, capital letters, special symbols) during registration.
+- [ ] **JWT Claim Verification**: Add `iss` (issuer) and `aud` (audience) verification claims during token decoding.
+
+## Injection & Input Hardening
+
+- [ ] **NoSQL Injection Check**: Ensure all MongoDB queries are strictly parameterized, avoiding dynamic `$where` filters.
+- [ ] **Content Sanitization**: Strip dangerous HTML tags and control characters from node markdown payloads before DB writes.
+- [ ] **CORS Hardening**: Shift from wildcard `allow_origins=["*"]` to strict whitelist variables in production.
 
 # Testing Conventions
-## QA
-# QA: Testing Instructions
 
-## Approach
-Smoke-test the happy path, with a focus on validating feature parity and functional correctness.
+## QA Strategy & Coverage
 
-## Unit Tests
+## Core Test Suites
 
-* Test individual units of code, such as configuration parsers and validation rules.
-	+ Use the established testing library ([e.g., JUnit](https://junit.org)) to create test suites and cases.
-	+ Include tests for edge cases, error handling, and performance (if applicable).
+### Unit Testing
 
-## Integration Tests
+- **Auth Utils**: Validate JWT generation, signature verification, and password bcrypt hashing.
+- **PAT Encryption**: Verify Fernet key-based encrypt/decrypt cycles and plaintext fallbacks.
 
-* Validate interactions between integrated components, such as:
-	+ Configuration entity creation and updating with the UI component library.
-	+ ORM-based caching and data storage.
+### Integration Testing
 
-## End-to-End Tests
+- **Project CRUD API**: Test full lifecycle (Register -> Login -> Create Project -> Add Nodes -> Fetch Canvas -> Delete Project) using FastAPI's TestClient and a clean, isolated database.
+- **Relationship Integrity**: Ensure that deleting a node cascades and removes all connected edges.
 
-* Exercise the entire feature workflow, covering:
-	+ Service configuration management workflows (e.g., entity definition, validation, deployment).
+### End-to-End Testing
 
-### E2E Test Scenarios
-
-* Define test scenarios for valid and invalid input data, as well as edge cases for errors and exceptions.
-* Leverage the established testing library's features, such as parameterized tests or mocking mechanisms.
-
-### Conformance to Coding Rules
-
-* Ensure all QA instructions adhere to project coding rules (naming conventions, ORM usage, etc.).
-* Verify that the feature's implementation follows best practices in terms of code organization, modularization, and documentation.
-
-# Key Files
-These files are referenced by the project graph — read them before modifying related code.
-- `tests/__init__.py`
+- **Playwright Suite**: Automated browser tests validating node drag-and-drop, connection line drawing, markdown editing, and export flow.
 
 # When generating code
+
 - Follow the architecture and conventions above; do not introduce stack choices not listed in `# Stack`.
 - Reference exact file paths from `# Key Files` when they exist; do not invent paths.
 - Add or update tests for any new behaviour, mirroring the style documented in `# Testing Conventions`.
 - If a request conflicts with this file, surface the conflict explicitly instead of silently overriding.
 
-<!-- Generated by CortexFlow from project: Convexflow -->
+<!-- Generated by CortexFlow from project: ConvexFlow Core System Graph & Roadmap -->
