@@ -407,6 +407,135 @@ function CanvasInner() {
     }
   };
 
+  const arrangeNodes = useCallback(async () => {
+    if (rawNodes.length === 0) return;
+
+    markSaving();
+
+    // 1. Build adjacency list representation of the DAG
+    const adj = {};
+    const inDegree = {};
+    rawNodes.forEach((node) => {
+      adj[node.id] = [];
+      inDegree[node.id] = 0;
+    });
+
+    edges.forEach((edge) => {
+      if (adj[edge.source] && adj[edge.target]) {
+        adj[edge.source].push(edge.target);
+        inDegree[edge.target] = (inDegree[edge.target] || 0) + 1;
+      }
+    });
+
+    // 2. Perform BFS rank assignment to calculate hierarchical levels
+    const queue = [];
+    const level = {};
+    rawNodes.forEach((node) => {
+      if (inDegree[node.id] === 0) {
+        level[node.id] = 0;
+        queue.push(node.id);
+      } else {
+        level[node.id] = 0; // fallback
+      }
+    });
+
+    if (queue.length === 0 && rawNodes.length > 0) {
+      const firstId = rawNodes[0].id;
+      level[firstId] = 0;
+      queue.push(firstId);
+    }
+
+    while (queue.length > 0) {
+      const u = queue.shift();
+      const uLevel = level[u];
+      (adj[u] || []).forEach((v) => {
+        const nextLevel = uLevel + 1;
+        if (nextLevel > (level[v] || 0)) {
+          level[v] = nextLevel;
+          queue.push(v);
+        }
+      });
+    }
+
+    // 3. Group nodes by level columns
+    const columns = {};
+    rawNodes.forEach((node) => {
+      const lvl = level[node.id] || 0;
+      if (!columns[lvl]) {
+        columns[lvl] = [];
+      }
+      columns[lvl].push(node);
+    });
+
+    // 4. Calculate spatial layout grid coordinate metrics
+    const colWidth = 360;
+    const rowHeight = 180;
+    const newPositions = {};
+
+    Object.keys(columns).forEach((lvlStr) => {
+      const lvl = parseInt(lvlStr, 10);
+      const colNodes = columns[lvl];
+
+      // Sort nodes in each column by type and title to group naturally
+      colNodes.sort((a, b) => {
+        if (a.type !== b.type) return a.type.localeCompare(b.type);
+        return a.title.localeCompare(b.title);
+      });
+
+      const totalHeight = (colNodes.length - 1) * rowHeight;
+      const yStart = -totalHeight / 2;
+
+      colNodes.forEach((node, index) => {
+        const x = lvl * colWidth;
+        const y = yStart + index * rowHeight;
+        newPositions[node.id] = { x, y };
+      });
+    });
+
+    // 5. Instantly update visual state in ReactFlow
+    setNodes((currentNodes) =>
+      currentNodes.map((n) => {
+        const pos = newPositions[n.id];
+        if (pos) {
+          return { ...n, position: pos };
+        }
+        return n;
+      })
+    );
+
+    // 6. Concurrently update coordinate records in MongoDB
+    try {
+      await Promise.all(
+        Object.keys(newPositions).map((nodeId) => {
+          const pos = newPositions[nodeId];
+          return api.put(`/nodes/${nodeId}`, {
+            position_x: pos.x,
+            position_y: pos.y,
+          });
+        })
+      );
+
+      setRawNodes((currentRawNodes) =>
+        currentRawNodes.map((rn) => {
+          const pos = newPositions[rn.id];
+          if (pos) {
+            return { ...rn, position_x: pos.x, position_y: pos.y };
+          }
+          return rn;
+        })
+      );
+
+      markSaved();
+      toast.success("Nodes auto-arranged beautifully!");
+
+      setTimeout(() => {
+        fitViewRef.current?.();
+      }, 100);
+    } catch (err) {
+      toast.error("Auto-arrange sync failed");
+    }
+  }, [rawNodes, edges, markSaving, markSaved, setNodes]);
+
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-cf-bg text-cf-dim font-mono text-xs">
@@ -529,6 +658,14 @@ function CanvasInner() {
           >
             <ClockCounterClockwise size={10} /> HISTORY
           </Link>
+          <button
+            onClick={arrangeNodes}
+            className="cf-btn border border-cf-line px-2 py-1 hover:bg-cf-elev text-cf-dim hover:text-cf-text transition-colors"
+            data-testid="arrange-canvas"
+            title="Auto-arrange nodes neatly"
+          >
+            ARRANGE
+          </button>
           <button
             onClick={() => fitViewRef.current?.()}
             className="cf-btn border border-cf-line px-2 py-1 hover:bg-cf-elev text-cf-dim hover:text-cf-text transition-colors"
