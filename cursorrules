@@ -1,0 +1,162 @@
+You are an expert engineer working on Convexflow.
+
+Treat the sections below as binding project intelligence — do not contradict the architecture, conventions, or constraints encoded here. Cite node titles when referencing existing components.
+
+# Technical Architecture
+## Stack & layout
+# Stack & layout Enrichment
+
+## Layered Architecture
+### Presentation Layer
+* Next.js with TypeScript and React for client-side rendering
+	+ Use `getStaticProps` and `getServerSideProps` for optimized data fetching
+	+ Leverage `React.memo` to optimize component re-renders
+
+### Business Logic Layer
+* Express with Prisma for API gateway and database interaction
+	+ Implement RESTful APIs using Express routers
+	+ Utilize Prisma's ORM capabilities for type-safe database queries
+
+### Data Storage Layer
+* Postgres as primary database with proper schema design
+	+ Define tables with descriptive names and relationships
+	+ Implement database transactions for atomicity and consistency
+
+## Component Breakdown
+### Core Components
+* `UserProfile` responsible for handling user data retrieval and management
+* `Dashboard` component for rendering core application features
+
+### Utility Components
+* `Loader` for handling async data fetching and loading states
+* `Toast` for displaying notifications and error messages
+
+## Data Flow Revisited
+Client → API (Express) → DB (Postgres)
+
+Note: The above architecture and components are enriched based on the provided node context, upstream nodes, and project coding rules.
+
+# Database Schema
+## Core entities
+# Core Entities Enrichment
+
+### Entity Definitions
+#### User
+`{id, email, createdAt, profilePicture}`
+
+* `profilePicture`: URL of the user's profile picture
+
+#### Resource
+`{ id, ownerId, name, description }`
+
+* `ownerId`: Foreign key referencing the `User` entity
+* `name` and `description`: Human-readable metadata for the resource
+
+### Entity Relationship
+- User 1-N Resource (one-to-many)
+
+### Additional Considerations
+
+* Use a consistent naming convention across the project, e.g., `UserService` instead of `UserSvc`
+* Leverage the established ORM library for data handling
+* For UI components, utilize the pre-defined component library and best practices from the [Technical Architecture] Stack & layout guidelines
+
+### Component Interactions
+
+* `UserProfile`: responsible for handling user data retrieval and management, including profile picture updates
+
+# API Contracts
+## Endpoints
+# Endpoints Enrichment
+
+## API Contract Enhancements {#api-contract-enhancements}
+Add documentation, example responses, and request bodies to each endpoint:
+```
+GET    /api/resource
+  * Returns list of resources with pagination (max 20 pages)
+  * Example response: `[{"id": 1, "name": "Resource 1"}, ...]`
+
+POST   /api/resource
+  * Creates a new resource with the provided data
+  * Request body: `{"id": null, "name": "New Resource"}`
+  * Example response: `{ "id": 10, "name": "New Resource" }`
+
+GET    /api/resource/{id}
+  * Returns resource details by ID
+  * Example response: `[{"id": 1, "name": "Resource 1"}, ...]`
+```
+
+## Authentication & Authorization {#auth-and-authorization}
+* JWT bearer token authentication for all API endpoints
+* Utilize Next.js built-in authentication mechanism (`next-auth`) for client-side rendering
+* Employ `express-jwt` middleware for server-side validation
+
+# Coding Rules & Conventions
+## Conventions
+### Conventions
+
+#### Additional Guidelines
+
+* Consistent naming conventions across the entire project:
+    ```java
+    // example: `UserService` instead of `UserSvc`
+    ```
+* Abide by existing abstraction layers:
+    + When dealing with data, use the established ORM (Object-Relational Mapping) library.
+    + For UI components, leverage the pre-defined component library.
+
+#### Exceptions and Clarifications
+
+* In the rare case where an existing file conflicts with a new requirement, override it with explicit justification (e.g., in a `README.md` or comment).
+* When inheriting from a base class, ensure you're adding meaningful behavior; use abstract classes or composition instead of simple inheritance.
+
+#### Best Practices
+
+* Favor code readability over brevity. Write comments and docstrings that provide context without duplicating the code's intent.
+* Consider using a static analysis tool to verify adherence to these conventions.
+
+# Testing Conventions
+## QA
+# QA: Testing Instructions
+
+## Approach
+Smoke-test the happy path, with a focus on validating feature parity and functional correctness.
+
+## Unit Tests
+
+* Test individual units of code, such as configuration parsers and validation rules.
+	+ Use the established testing library ([e.g., JUnit](https://junit.org)) to create test suites and cases.
+	+ Include tests for edge cases, error handling, and performance (if applicable).
+
+## Integration Tests
+
+* Validate interactions between integrated components, such as:
+	+ Configuration entity creation and updating with the UI component library.
+	+ ORM-based caching and data storage.
+
+## End-to-End Tests
+
+* Exercise the entire feature workflow, covering:
+	+ Service configuration management workflows (e.g., entity definition, validation, deployment).
+
+### E2E Test Scenarios
+
+* Define test scenarios for valid and invalid input data, as well as edge cases for errors and exceptions.
+* Leverage the established testing library's features, such as parameterized tests or mocking mechanisms.
+
+### Conformance to Coding Rules
+
+* Ensure all QA instructions adhere to project coding rules (naming conventions, ORM usage, etc.).
+* Verify that the feature's implementation follows best practices in terms of code organization, modularization, and documentation.
+
+# Key Files
+These files are referenced by the project graph — read them before modifying related code.
+- `tests/__init__.py`
+
+# When generating code
+- Follow the architecture and conventions above; do not introduce stack choices not listed in `# Stack`.
+- Reference exact file paths from `# Key Files` when they exist; do not invent paths.
+- Add or update tests for any new behaviour, mirroring the style documented in `# Testing Conventions`.
+- If a request conflicts with this file, surface the conflict explicitly instead of silently overriding.
+
+<!-- Generated by CortexFlow from project: Convexflow -->
