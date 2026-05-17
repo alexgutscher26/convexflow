@@ -31,16 +31,293 @@ Client Browser (Zustand + ReactFlow) ──[JSON API via JWT]──> FastAPI App
 
 ## Next-Gen AI Integrations
 
-- [ ] **Streaming AI Responses**: Implement Server-Sent Events (SSE) on the `/api/ai/expand` endpoint for real-time word streaming.
-- [ ] **Local LLM Providers**: Expand the `LocalLlmChat` implementation with custom headers, model listings, and connection checkers (LM Studio, Ollama).
-- [ ] **AI Chat Drawer**: Add a floating chatbot assistant referencing the full canvas context.
-- [ ] **Hallucination Guard**: Cross-reference AI-generated requirements against actual repository files before displaying them.
+This central node coordinates all 10 sophisticated AI and LLM enhancement requirements from your TODO roadmap. Each branched node represents an advanced generative benchmark to turn ConvexFlow into a world-class AI visualRequirements planner.
 
-## GitHub Workflow Polish
+## [!] Async AI Tasks
 
-- [ ] **GitHub OAuth Integration**: Transition from insecure raw PAT tokens to full OAuth authorization flow.
-- [ ] **Webhooks for Re-scanning**: Hook `POST /api/github/webhook` to automatically re-scan code trees on git push.
-- [ ] **Code File Previews**: View raw code directly inside the Inspector via authenticated REST requests.
+## Goal
+
+Prevent FastAPI HTTP request timeouts during long-running generative LLM expand operations.
+
+## Requirements
+
+- Move `/api/ai/expand` and `/api/ai/generate-prompt` logic into background queues.
+- **Technology Choice**: Utilize FastAPI's built-in `BackgroundTasks` or transition to Celery/ARQ workers.
+
+## [!] Structured Logging
+
+## Goal
+
+Ensure application logs are machine-readable and trace-correlated across distributed requests.
+
+## Requirements
+
+- Replace standard `logging.basicConfig` with `structlog` or JSON structured output.
+- Inject a unique `request_id` correlation token into every request context via middleware.
+
+## [!] Global Error Envelope
+
+## Goal
+
+Enforce a consistent, unified error response structure across all FastAPI routes.
+
+## Requirements
+
+- Intercept all unhandled server exceptions.
+- Return a standardized envelope: `{"error": "Message", "code": "ERR_CODE", "request_id": "UUID"}`.
+
+## [!] Graceful Shutdown
+
+## Goal
+
+Ensure in-flight HTTP requests finish processing safely before the ASGI process exits.
+
+## Requirements
+
+- Catch `SIGTERM` and `SIGINT` signals on the FastAPI server.
+- Drain active connections and close the Motor DB client before shutdown.
+
+## [!] Router Refactoring
+
+## Goal
+
+Break down the large monolithic `server.py` into small, modular, maintainable route bundles.
+
+## Requirements
+
+- Split endpoints into separate modules: `routers/auth.py`, `routers/projects.py`, `routers/nodes.py`, `routers/edges.py`, `routers/ai.py`, `routers/github.py`.
+- Register them dynamically via `FastAPI().include_router()`.
+
+## [!] Streaming AI Answers
+
+## Goal
+
+Stream token generation outputs via Server-Sent Events (SSE) instead of blocking requests.
+
+## Requirements
+
+- Transition AI expand API endpoint to support SSE chunking outputs.
+- Update the React inspector client to progressively append word chunks in real-time.
+
+## [!] Multi-Model Selector
+
+## Goal
+
+Allow users to choose between diverse cloud and local inference models per-generation.
+
+## Requirements
+
+- Expose dynamic dropdown picker supporting: Claude Sonnet, GPT-4o, Gemini, or a local provider.
+- Send chosen model parameters inside standard API request payloads.
+
+## [!] Prompt Context Caching
+
+## Goal
+
+Optimize API costs and response speed for recurring identical graph structures.
+
+## Requirements
+
+- Compute a hash of the current active project canvas nodes and edges.
+- Store and retrieve pre-generated AI outputs using a dynamic key/value Redis backend.
+
+## [!] Local LLM Integration
+
+## Goal
+
+Provide complete offline privacy and bypass cloud keys via localized inference models.
+
+## Requirements
+
+- Extend the existing `LocalLlmChat` driver class.
+- Incorporate custom authentication headers, model listing, and connection check endpoints.
+
+## [!] GitHub OAuth Flow
+
+## Goal
+
+Transition from manual personal access tokens (PAT) to secure OAuth authorization flow.
+
+## Requirements
+
+- Implement standard OAuth2 endpoints to authenticate users directly via GitHub API.
+- Securely store and encrypt rotating GitHub access tokens at rest in MongoDB.
+
+## [!] Webhook Push Re-Scan
+
+## Goal
+
+Ensure visual requirement nodes are continuously aligned with active codebase changes.
+
+## Requirements
+
+- Create a dynamic receiver endpoint `/api/github/webhook`.
+- Automatically fire the `scan_repo` backend task on every push to the tracked repository branch.
+
+## [!] TypeScript Migration
+
+## Goal
+
+Harden frontend type-safety and ensure API contracts are strictly typed during rendering.
+
+## Requirements
+
+- Establish a progressive plan to migrate React files from `*.jsx` to TypeScript `*.tsx` extensions.
+- Enforce type definitions for Zustand stores, API payload responses, and canvas layouts.
+
+## [!] API Client Generation
+
+## Goal
+
+Eliminate manual API networking code mapping and mismatch errors on client calls.
+
+## Requirements
+
+- Set up automatic frontend fetch utility bindings compiled directly from FastAPI OpenAPI schema.
+- **Technology Choice**: Integrate `openapi-typescript` to run during local builds.
+
+## [!] Backend Hot-Reload Fix
+
+## Goal
+
+Prevent infinite reload cycles caused by FastAPI watching unrelated frontend node folders.
+
+## Requirements
+
+- Standardize uvicorn launch arguments inside local configurations.
+- Enforce strict reload monitoring flags: `--reload-dir backend`.
+
+## [!] Gzip/Brotli Compression
+
+## Goal
+
+Speed up visual graph download transfers for large system requirement diagrams.
+
+## Requirements
+
+- Register FastAPI `GZipMiddleware` handlers inside core configurations.
+- Compress all outgoing JSON responses containing massive node lists.
+
+## [!] OpenTelemetry Tracing
+
+## Goal
+
+Provide complete lifecycle transparency across API endpoints, DB operations, and external AI calls.
+
+## Requirements
+
+- Integrate standard `opentelemetry-sdk` tracing hooks inside backend services.
+- Map transaction scopes tracking incoming requests to internal database queries and Claude generative actions.
+
+## [!] Sentry Error Capture
+
+## Goal
+
+Capture, aggregate, and alert on production frontend UI crashes and backend server exceptions.
+
+## Requirements
+
+- Setup official `@sentry/react` and `sentry-sdk` (FastAPI) client modules.
+- Capture environment context parameters, transaction traces, and source map references automatically.
+
+## [!] ARCHITECTURE.md Spec
+
+## Goal
+
+Provide complete structural clarity to developers surrounding code layout boundaries.
+
+## Requirements
+
+- Map system structural choices, routing scopes, backend-to-frontend flows, database relations, and AI generation adapters.
+- Include clean graphic layouts tracking requests from client Zustand states to Motor and external LLMs.
+
+## [!] Local LLM Config Guides
+
+## Goal
+
+Guide developers through localized offline setup configurations.
+
+## Requirements
+
+- Provide explicit step-by-step instructions for running visual flows against Ollama or LM Studio models.
+- Detail connection address setups, hardware configurations, and token parameter adjustments.
+
+## [!] Third-Party Plugins
+
+## Vision
+
+Turn ConvexFlow into a core enterprise integrations engine by allowing external systems to sync canvas states.
+
+## Specs
+
+- Expose outbound REST hook integrations.
+- Author dynamic, standard sync adapters targeting Jira, Linear, Notion, and Slack workspace channels.
+
+## [!] Autonomous AI Scaffolder
+
+## Vision
+
+Enable autonomous visual agent execution by transforming linked requirements directly into boilerplate code files.
+
+## Specs
+
+- Let AI agents crawl visual database schema configurations and API contract nodes.
+- Auto-generate complete structural directories, base server templates, and CRUD test scripts.
+
+## [!] Graph Analytics Engine
+
+## Vision
+
+Empower tech leads to inspect structural complexity and trace critical path dependencies.
+
+## Specs
+
+- Run real-time network calculation algorithms over canvas DAG topologies.
+- Expose visual diagrams highlighting node centrality metrics, highly connected rules, and longest dependency paths.
+
+## [!] Smart LLM Router
+
+## Vision
+
+Optimize generative performance, strict API costs, and compliance rules dynamically.
+
+## Specs
+
+- Build a dynamic routing gateway determining best LLM endpoints for active generations.
+- Router logic: evaluate parameters like token capacity needs, confidentiality level settings, and cloud budgets.
+
+## [!] Generative URL Seeding
+
+## Vision
+
+Bootstrap a visual requirements canvas instantly using existing digital specifications.
+
+## Specs
+
+- Expose dynamic URL seed inputs.
+- Fetch, parse, and process raw contents of external links (e.g. public briefs, git repositories) to seed starting graph layouts.
+
+## [!] Model Context Protocol
+
+## Vision
+
+Turn ConvexFlow into a standard model context provider for external AI developer tools.
+
+## Specs
+
+- Build a standard Model Context Protocol (MCP) server integration.
+- Expose active project graph JSON states to allow coding assistants like Claude or Cursor to query requirements.
+
+## [!] AI Pull Request Reviewer
+
+## Vision
+
+Ensure that incoming codebase integrations respect visual requirements criteria.
+
+## Specs
+
+- Fetch active GitHub pull request diff states.
+- Evaluate code against target canvas database and API contract nodes to auto-generate review checklists.
 
 # Database Schema
 
@@ -72,6 +349,106 @@ Client Browser (Zustand + ReactFlow) ──[JSON API via JWT]──> FastAPI App
 
 - Schema: `{ id, user_id, expires_at, revoked, created_at }`
 - Indexes: TTL index on `expires_at`
+
+## [!] Parameterized Queries
+
+## Security Goal
+
+Mitigate all risks of NoSQL injection attacks by ensuring database operations avoid dynamic evaluation blocks.
+
+## Requirements
+
+- **Rule**: Ban any raw `$where` clauses, `eval()`, or unparameterized dynamic query constructions.
+- **Bypass Check**: Standardize on Motor's driver API dictionary structures for all database CRUD tasks.
+
+## [!] Add Database Indexes
+
+## Goal
+
+Harden database query performance and prevent Full Table Scans under heavy project graph volumes.
+
+## Requirements
+
+- Create a compound index on `nodes`: `{project_id: 1, type: 1}`.
+- Create single-field indexes on `edges`: `{project_id: 1}`.
+- Create single-field indexes on `snapshots`: `{project_id: 1}`.
+
+## [!] MongoDB Pool Configuration
+
+## Goal
+
+Optimize DB connection recycling and prevent socket exhaustion during concurrent requests.
+
+## Requirements
+
+- Explicitly configure Motor's `AsyncIOMotorClient` parameters.
+- Tune settings: `maxPoolSize=50`, `minPoolSize=10`, `serverSelectionTimeoutMS=5000`.
+
+## [!] Mongo Schema Migrations
+
+## Goal
+
+Establish a version-controlled workflow for MongoDB collection, indexes, and document updates.
+
+## Requirements
+
+- Create a `migrations/` directory tracking structural updates.
+- Utilize a dedicated `db_version` schema collection to run migrations programmatically.
+
+## [!] Snapshot Retention Policy
+
+## Goal
+
+Prevent infinite database growth from endless manual or automated checkpoints.
+
+## Requirements
+
+- Enforce a maximum retention limit (e.g., max 50 snapshots per project).
+- Alternatively, assign a TTL index to prune older historic checkpoints.
+
+## [!] Optimistic Locking
+
+## Goal
+
+Prevent document overwrite conflicts when multiple stakeholders edit the same requirement node.
+
+## Requirements
+
+- Add an incremental `version` field to the `nodes` schema.
+- Enforce a comparison check using MongoDB's `$inc` operator on updates.
+
+## [!] Soft-Delete Safeguard
+
+## Goal
+
+Allow recovery of accidentally deleted projects or requirement nodes.
+
+## Requirements
+
+- Replace `delete_one` with a soft-delete indicator `deleted_at: datetime`.
+- Filter all read queries to exclude soft-deleted documents, and add a `/restore` endpoint.
+
+## [!] MongoDB Read Replicas
+
+## Goal
+
+Harden primary database write handling capacities by delegating visual listings load.
+
+## Requirements
+
+- Integrate read-preference configurations inside database drivers.
+- Enforce `secondaryPreferred` connection routing tags consistently for heavy query fetch lists.
+
+## [!] Automated DB Backups
+
+## Goal
+
+Safeguard stakeholder diagram investments against hardware failures or database corruption.
+
+## Requirements
+
+- Configure MongoDB Atlas scheduled backup cron parameters.
+- Enforce automated daily visual checkpoints with a minimum 7-day retention standard.
 
 # API Contracts
 
@@ -110,6 +487,63 @@ Client Browser (Zustand + ReactFlow) ──[JSON API via JWT]──> FastAPI App
 - `POST /api/ai/expand` -> ExpandResponse
 - `POST /api/ai/generate-prompt` -> GeneratePromptResponse
 
+## [!] Auth Rate Limiting
+
+## Security Goal
+
+Implement rate-limiting on sensitive authentication routes to prevent brute-force attacks and credential stuffing.
+
+## Requirements
+
+- Enforce strict limits on `/api/auth/login` and `/api/auth/register` endpoints.
+- **Technology Choice**: Integrate `slowapi` (FastAPI-native) or utilize a Redis-backed rate-limit counter (e.g., 5 login attempts per email per minute).
+- **Graceful Failure**: Return a clean `429 Too Many Requests` HTTP status code with a descriptive RFC-7807 standard error payload.
+
+## [!] Secure Session Revocation
+
+## Security Goal
+
+Build a secure logout route that immediately invalidates session refresh tokens.
+
+## Requirements
+
+- **Blacklisting**: Logged-out token identifiers (`jti`) must be written to a Redis/DB blacklist immediately.
+- **Validation**: Check incoming tokens against the blacklist in all authenticated routes.
+- **Cookie Clearing**: Clear client-side JWT cookies upon calling `POST /api/auth/logout`.
+
+## [!] Secure PAT Responses
+
+## Security Goal
+
+Ensure that raw personal access tokens (PAT) never leak in API response payloads or server log dumps.
+
+## Requirements
+
+- **Audit Fields**: Verify that only boolean indicators (e.g., `pat_stored: true`) are returned to the client browser.
+- **Log Inspections**: Inspect all python logging statements to guarantee that decrypted PAT strings are never printed to terminal consoles or cloud logs.
+
+## [!] API Pagination
+
+## Goal
+
+Prevent server memory exhaustion and network congestion when projects scale to thousands of nodes.
+
+## Requirements
+
+- Implement cursor-based pagination for `list_nodes` and `list_edges` endpoints.
+- Cap return counts to prevent unbounded large payload retrievals.
+
+## [!] Health & Readiness
+
+## Goal
+
+Expose explicit metrics to container orchestrators (like Kubernetes or Railway) to trace runtime health.
+
+## Requirements
+
+- `/health`: Liveness probe checks if ASGI server is processing events.
+- `/ready`: Readiness probe checks if DB pool connection is active and responding.
+
 # Coding Rules & Conventions
 
 ## Development Conventions
@@ -129,20 +563,83 @@ Client Browser (Zustand + ReactFlow) ──[JSON API via JWT]──> FastAPI App
 - **Component Design**: Keep components modular, small, and reusable. Avoid inline styles; utilize vanilla utility classes and clean CSS tokens.
 - **State Management**: Use Zustand for lightweight, centralized global state (auth, project metadata, canvas layout).
 
-## Security & Hardening Backlog
+## Security Core Hub
 
-## Authentication Hardening
+## Security & Compliance Core Hub
 
-- [ ] **Rate Limiting**: Integrate `slowapi` or Redis-backed limits on `/api/auth/login` and `/api/auth/register` to block brute-force attempts.
-- [ ] **CSRF Defense**: Enforce SameSite cookie policies and double-submit tokens on mutating endpoints.
-- [ ] **Password Enforcements**: Require strong passwords (digits, capital letters, special symbols) during registration.
-- [ ] **JWT Claim Verification**: Add `iss` (issuer) and `aud` (audience) verification claims during token decoding.
+This central node coordinates all 12 critical security backlog requirements outlined in your TODO roadmap. Each branched node represents a specific, isolated technical standard needed to harden ConvexFlow for production.
 
-## Injection & Input Hardening
+## Active Focus Areas
 
-- [ ] **NoSQL Injection Check**: Ensure all MongoDB queries are strictly parameterized, avoiding dynamic `$where` filters.
-- [ ] **Content Sanitization**: Strip dangerous HTML tags and control characters from node markdown payloads before DB writes.
-- [ ] **CORS Hardening**: Shift from wildcard `allow_origins=["*"]` to strict whitelist variables in production.
+1. **Authentication Hardening**: Rate limiting, claim validation, CSRF defenses, complexity rules, and email verification.
+2. **Storage & Code Audits**: Query parameterization, input sanitization, log leaking reviews, CORS controls, and gitleaks scans.
+
+## [!] JWT Claim Validation
+
+## Security Goal
+
+Harden JSON Web Token validation to prevent token forgery and ensure issuer/audience integrity.
+
+## Requirements
+
+- Validate `iss` (issuer) and `aud` (audience) claims in addition to existing `sub`, `iat`, and `exp` validations in `get_current_user`.
+- Establish constant values in env variables for expected issuer and audience.
+- Fail immediately with `401 Unauthorized` if any expected claims are missing or mismatched.
+
+## [!] CSRF Defense
+
+## Security Goal
+
+Protect all state-mutating endpoints against Cross-Site Request Forgery (CSRF) attacks.
+
+## Requirements
+
+- Audit all mutating (`POST`, `PUT`, `DELETE`) routes.
+- **Strategy**: Implement a secure SameSite cookie policy (e.g., `SameSite=Lax` or `SameSite=Strict`).
+- **Alternative**: Employ a double-submit cookie pattern requiring clients to echo a session token header alongside cookies.
+
+## [!] Content Sanitization
+
+## Security Goal
+
+Prevent markdown injection, Cross-Site Scripting (XSS), and context window Denial of Service (DoS) attacks.
+
+## Requirements
+
+- **Frontend Rendering**: Safely sanitize markdown rendering packages on the Canvas client.
+- **Backend Checks**: Filter extreme payloads or dangerous HTML fragments in `NodeIn` / `NodeUpdate` API inputs to prevent downstream AI buffer overflow attacks.
+
+## [x] Project Ownership Checks
+
+## Security Status
+
+- [x] **Enforced**: Project-level ownership validation checks are fully implemented on every mutating route.
+
+## Execution
+
+- Verification helper `assert_project_owner(project_id, user_id)` is systematically called during node CRUD, edge connections, repo syncing, and AI generation tasks.
+
+## [!] Project System Prompts
+
+## Goal
+
+Let developers override the AI co-pilot's persona, technology filters, or naming instructions.
+
+## Requirements
+
+- Add a customizable `system_prompt` input box inside project configurations.
+- Inject this customized system prompt context at the P0 level in all LLM pipeline inputs.
+
+## [!] AI Hallucination Guard
+
+## Goal
+
+Ensure that AI-generated markdown blocks only reference real database fields or file paths.
+
+## Requirements
+
+- Run validation scanning over AI content.
+- Proactively correct or strip mismatched repository files or missing technology references.
 
 # Testing Conventions
 
@@ -163,6 +660,105 @@ Client Browser (Zustand + ReactFlow) ──[JSON API via JWT]──> FastAPI App
 ### End-to-End Testing
 
 - **Playwright Suite**: Automated browser tests validating node drag-and-drop, connection line drawing, markdown editing, and export flow.
+
+## [!] Backend Unit Tests
+
+## Goal
+
+Ensure core business logic remains correct and regression-free.
+
+## Requirements
+
+- Write complete Pytest coverage for utility files.
+- Target logic inside `validation.py` (password structures, JWT parsers), `wizard.py` (node arrangement BFS), and `templates.py`.
+
+## [!] API Integration Tests
+
+## Goal
+
+Ensure FastAPI endpoints process request schemas and interact with storage correctly.
+
+## Requirements
+
+- Establish clean testing drivers using HTTPX's async client.
+- Target routes in `server.py` with mock MongoDB storage (e.g. `mongomock` or isolated dev containers).
+
+## [!] Component Testing
+
+## Goal
+
+Ensure React custom nodes and interactive side-drawers render stable states without crashes.
+
+## Requirements
+
+- Implement frontend component tests using `@testing-library/react` and Vitest.
+- Target rendering states of `CustomNode`, `Inspector` panels, and layout `Sidebar` listings.
+
+## [!] E2E Playwright Flows
+
+## Goal
+
+Protect core stakeholder visual workflows against frontend/backend breaking releases.
+
+## Requirements
+
+- Author complete, multi-page E2E test flows running in Playwright.
+- Validate crucial paths: User signup ──> canvas creation ──> node addition ──> auto-arrange ──> markdown expansion.
+
+## [!] Snapshot Regression
+
+## Goal
+
+Prevent accidental layout shifts or CSS breaking modifications inside visual canvas components.
+
+## Requirements
+
+- Integrate pixel-perfect image comparison capabilities into Playwright pipelines.
+- Take and compare screenshots of visual node states, inspector drawers, and dashboard grid listings.
+
+## [!] CI Automated Runs
+
+## Goal
+
+Guarantee no code changes breaking quality gates are merged into standard branches.
+
+## Requirements
+
+- Author standard GitHub Actions pipeline configurations.
+- Trigger linting, unit suites, and database mock integration checks on every pull request.
+
+## [!] Coverage Reporting Gates
+
+## Goal
+
+Enforce strict coverage gates to prevent code additions lacking appropriate tests.
+
+## Requirements
+
+- Integrate `pytest-cov` (FastAPI) and Vitest `coverage` features.
+- Enforce minimum coverage thresholds (e.g. 80%) to pass CI build pipelines.
+
+## [!] Locust Load Testing
+
+## Goal
+
+Benchmark and optimize concurrent API handling under heavy canvas load volumes.
+
+## Requirements
+
+- Author performance load testing scripts in `Locust` or `k6`.
+- Mock hundreds of concurrent users loading visuals, adding edges, and requesting AI summaries.
+
+## [!] Contract Validation
+
+## Goal
+
+Ensure complete contract alignment between client network layers and server endpoints on every build.
+
+## Requirements
+
+- Validate generated client structures against the live OpenAPI FastAPI schema specification.
+- Fail builds immediately if backend schemas evolve without frontend typings being aligned.
 
 # When generating code
 
