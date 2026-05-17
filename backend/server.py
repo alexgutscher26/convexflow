@@ -12,6 +12,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
 
+from cryptography.fernet import Fernet, InvalidToken
+
 import bcrypt
 import httpx
 import jwt
@@ -42,6 +44,19 @@ USE_LOCAL_LLM = os.environ.get("USE_LOCAL_LLM", "false").lower() == "true"
 LOCAL_LLM_URL = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434/v1")
 LOCAL_LLM_MODEL = os.environ.get("LOCAL_LLM_MODEL", "llama3")
 
+# GitHub PAT encryption — requires a 32-byte URL-safe base64 Fernet key.
+# Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+_PAT_ENC_KEY_RAW = os.environ.get("PAT_ENCRYPTION_KEY", "")
+if not _PAT_ENC_KEY_RAW:
+    raise RuntimeError(
+        "PAT_ENCRYPTION_KEY env var is not set. "
+        "Generate a key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+    )
+try:
+    _fernet = Fernet(_PAT_ENC_KEY_RAW.encode())
+except Exception as _fernet_err:
+    raise RuntimeError(f"PAT_ENCRYPTION_KEY is invalid: {_fernet_err}") from _fernet_err
+
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
@@ -51,6 +66,24 @@ security = HTTPBearer(auto_error=False)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("cortexflow")
+
+
+# ---------- PAT encryption helpers ----------
+def encrypt_pat(plaintext: str) -> str:
+    """Return Fernet-encrypted, URL-safe base64 ciphertext."""
+    return _fernet.encrypt(plaintext.encode()).decode()
+
+
+def decrypt_pat(ciphertext: str) -> str:
+    """Decrypt a Fernet token. Returns empty string on failure (e.g. legacy plaintext)."""
+    if not ciphertext:
+        return ""
+    try:
+        return _fernet.decrypt(ciphertext.encode()).decode()
+    except InvalidToken:
+        # Graceful fallback: treat as plaintext (supports migration from MVP plaintext PATs)
+        log.warning("github_pat: found non-Fernet value — treating as plaintext (migrate soon)")
+        return ciphertext
 
 
 # ---------- helpers ----------
@@ -614,10 +647,10 @@ async def connect_repo(
         "frameworks": [],
         "readme_excerpt": "",
     }
-    # store PAT on user record (encrypted-at-rest in production; MVP plaintext)
+    # Store PAT encrypted at rest using Fernet (AES-128-CBC + HMAC-SHA256).
     if req.pat:
         await db.users.update_one(
-            {"id": user["id"]}, {"$set": {"github_pat": req.pat}}
+            {"id": user["id"]}, {"$set": {"github_pat": encrypt_pat(req.pat)}}
         )
     await db.projects.update_one(
         {"id": project_id},
@@ -633,7 +666,7 @@ async def scan_repo(project_id: str, user: dict = Depends(get_current_user)):
     if not repo:
         raise HTTPException(status_code=400, detail="No repository connected")
     user_doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    pat = user_doc.get("github_pat", "") if user_doc else ""
+    pat = decrypt_pat(user_doc.get("github_pat", "")) if user_doc else ""
 
     branch = repo["branch"]
     owner, name = repo["owner"], repo["repo"]

@@ -7,7 +7,7 @@
 ## 🔴 CRITICAL (Security & Stability)
 
 ### Authentication & Authorization
-- [ ] **[!] Encrypt GitHub PATs at rest** — currently stored in plaintext in MongoDB (`server.py:617`); use Fernet/AES symmetric encryption with a `SECRET_KEY` env var
+- [x] **[!] Encrypt GitHub PATs at rest** — currently stored in plaintext in MongoDB (`server.py:617`); use Fernet/AES symmetric encryption with a `SECRET_KEY` env var
 - [ ] **[!] Add JWT refresh-token flow** — current 30-day access token has no revocation mechanism; add short-lived access tokens + long-lived refresh tokens
 - [ ] **[!] Rate-limit auth endpoints** — `/auth/login` and `/auth/register` are open to brute-force attacks; implement `slowapi` or Redis-backed rate limiting
 - [ ] **[!] Validate JWT audience/issuer claims** — currently only `sub`, `iat`, `exp` are checked; add `iss` and `aud` claims for defense-in-depth
