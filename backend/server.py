@@ -205,11 +205,66 @@ async def add_security_headers(request: Request, call_next):
     
     return response
 
+INDEXING_TIME_MS = 0.0
+
+async def setup_text_indexes():
+    # Setup projects text index
+    try:
+        await db.projects.create_index(
+            [("name", "text"), ("description", "text")],
+            weights={"name": 10, "description": 5},
+            name="projects_text_index"
+        )
+    except Exception as e:
+        log.warning(f"Failed to create projects text index: {e}. Dropping and recreating.")
+        try:
+            await db.projects.drop_index("projects_text_index")
+            await db.projects.create_index(
+                [("name", "text"), ("description", "text")],
+                weights={"name": 10, "description": 5},
+                name="projects_text_index"
+            )
+        except Exception as drop_err:
+            log.error(f"Could not recreate projects text index: {drop_err}")
+
+    # Setup nodes text index
+    try:
+        await db.nodes.create_index(
+            [("title", "text"), ("content", "text")],
+            weights={"title": 10, "content": 5},
+            name="nodes_text_index"
+        )
+    except Exception as e:
+        log.warning(f"Failed to create nodes text index: {e}. Dropping and recreating.")
+        try:
+            await db.nodes.drop_index("nodes_text_index")
+            await db.nodes.create_index(
+                [("title", "text"), ("content", "text")],
+                weights={"title": 10, "content": 5},
+                name="nodes_text_index"
+            )
+        except Exception as drop_err:
+            log.error(f"Could not recreate nodes text index: {drop_err}")
+
+    # Supporting performance indexes
+    await db.projects.create_index("owner_id")
+    await db.nodes.create_index("project_id")
+
+
 @app.on_event("startup")
 async def startup_event():
+    global INDEXING_TIME_MS
+    import time
+    t_start = time.perf_counter()
     # Create TTL and search indexes on refresh_tokens
     await db.refresh_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.refresh_tokens.create_index("user_id")
+    
+    # Set up full-text search indexes
+    await setup_text_indexes()
+    t_end = time.perf_counter()
+    INDEXING_TIME_MS = (t_end - t_start) * 1000
+    log.info(f"Full-text search indexes initialized in {INDEXING_TIME_MS:.2f}ms")
 
 api = APIRouter(prefix="/api")
 security = HTTPBearer(auto_error=False)
@@ -1895,6 +1950,228 @@ async def diff_snapshots(
         "after": {"id": b["id"], "label": b["label"], "kind": b["kind"], "created_at": b["created_at"]},
         "diff": diff,
     }
+
+
+class SearchResultMetadata(BaseModel):
+    project_type: Optional[str] = None
+    template: Optional[str] = None
+    node_type: Optional[str] = None
+    metadata: Optional[dict] = None
+
+class SearchResult(BaseModel):
+    type: Literal["project", "node"]
+    id: str
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    title: str
+    snippet: str
+    score: float
+    metadata: SearchResultMetadata
+
+class SearchMetrics(BaseModel):
+    query_latency_ms: float
+    indexing_time_ms: float
+    memory_usage_bytes: int
+
+class SearchResp(BaseModel):
+    results: list[SearchResult]
+    metrics: SearchMetrics
+    debug_logs: list[str]
+
+
+def make_snippet(text: str, query: str, length: int = 200) -> str:
+    if not text:
+        return ""
+    if not query:
+        return text[:length] + "..." if len(text) > length else text
+    
+    idx = text.lower().find(query.lower())
+    if idx == -1:
+        return text[:length] + "..." if len(text) > length else text
+    
+    start = max(0, idx - length // 2)
+    end = min(len(text), start + length)
+    
+    if start > 0:
+        space_idx = text.find(" ", start, idx)
+        if space_idx != -1:
+            start = space_idx + 1
+            
+    snippet = text[start:end]
+    if start > 0:
+        snippet = "..." + snippet
+    if end < len(text):
+        snippet = snippet + "..."
+    return snippet
+
+
+@api.get("/search", response_model=SearchResp)
+async def search_workspace(q: str = "", user: dict = Depends(get_current_user)):
+    import time
+    import os
+    try:
+        import psutil
+        process = psutil.Process(os.getpid())
+        mem_before = process.memory_info().rss
+    except ImportError:
+        psutil = None
+        mem_before = 0
+
+    t0 = time.perf_counter()
+
+    # 1. Fetch user's projects
+    user_projects = await db.projects.find({"owner_id": user["id"]}, {"_id": 0}).to_list(1000)
+    user_project_ids = [p["id"] for p in user_projects]
+    project_name_map = {p["id"]: p.get("name", "Unknown Project") for p in user_projects}
+
+    results = []
+    
+    if not user_project_ids:
+        t1 = time.perf_counter()
+        latency_ms = (t1 - t0) * 1000
+        mem_after = process.memory_info().rss if psutil else 0
+        return SearchResp(
+            results=[],
+            metrics=SearchMetrics(
+                query_latency_ms=latency_ms,
+                indexing_time_ms=INDEXING_TIME_MS,
+                memory_usage_bytes=max(0, mem_after - mem_before)
+            ),
+            debug_logs=[
+                "User has no projects. Search query ignored."
+            ]
+        )
+
+    # 2. Perform text search queries in parallel if query string is non-empty
+    if q.strip():
+        # Projects search query using text index
+        projects_query = {
+            "owner_id": user["id"],
+            "$text": {"$search": q}
+        }
+        projects_projection = {
+            "id": 1,
+            "name": 1,
+            "description": 1,
+            "project_type": 1,
+            "template": 1,
+            "score": {"$meta": "textScore"}
+        }
+        
+        # Nodes search query using text index
+        nodes_query = {
+            "project_id": {"$in": user_project_ids},
+            "$text": {"$search": q}
+        }
+        nodes_projection = {
+            "id": 1,
+            "project_id": 1,
+            "title": 1,
+            "content": 1,
+            "type": 1,
+            "metadata": 1,
+            "score": {"$meta": "textScore"}
+        }
+
+        # Run both queries concurrently
+        projects_task = db.projects.find(projects_query, projects_projection).sort([("score", {"$meta": "textScore"})]).to_list(100)
+        nodes_task = db.nodes.find(nodes_query, nodes_projection).sort([("score", {"$meta": "textScore"})]).to_list(500)
+        
+        raw_projects, raw_nodes = await asyncio.gather(projects_task, nodes_task)
+
+        # 3. Format project results
+        for p in raw_projects:
+            results.append(SearchResult(
+                type="project",
+                id=p["id"],
+                title=p["name"],
+                snippet=make_snippet(p.get("description", ""), q),
+                score=p.get("score", 0.0),
+                metadata=SearchResultMetadata(
+                    project_type=p.get("project_type"),
+                    template=p.get("template")
+                )
+            ))
+
+        # 4. Format node results
+        for n in raw_nodes:
+            results.append(SearchResult(
+                type="node",
+                id=n["id"],
+                project_id=n["project_id"],
+                project_name=project_name_map.get(n["project_id"], "Unknown Project"),
+                title=n.get("title") or n.get("type", "Untitled Node"),
+                snippet=make_snippet(n.get("content", ""), q),
+                score=n.get("score", 0.0),
+                metadata=SearchResultMetadata(
+                    node_type=n.get("type"),
+                    metadata=n.get("metadata")
+                )
+            ))
+    else:
+        # Fallback for empty query: return latest projects and nodes
+        projects_task = db.projects.find({"owner_id": user["id"]}, {"_id": 0}).sort("updated_at", -1).limit(10).to_list(10)
+        nodes_task = db.nodes.find({"project_id": {"$in": user_project_ids}}, {"_id": 0}).sort("updated_at", -1).limit(20).to_list(20)
+        
+        raw_projects, raw_nodes = await asyncio.gather(projects_task, nodes_task)
+        
+        for p in raw_projects:
+            results.append(SearchResult(
+                type="project",
+                id=p["id"],
+                title=p["name"],
+                snippet=p.get("description", "")[:200],
+                score=0.0,
+                metadata=SearchResultMetadata(
+                    project_type=p.get("project_type"),
+                    template=p.get("template")
+                )
+            ))
+            
+        for n in raw_nodes:
+            results.append(SearchResult(
+                type="node",
+                id=n["id"],
+                project_id=n["project_id"],
+                project_name=project_name_map.get(n["project_id"], "Unknown Project"),
+                title=n.get("title") or n.get("type", "Untitled Node"),
+                snippet=n.get("content", "")[:200],
+                score=0.0,
+                metadata=SearchResultMetadata(
+                    node_type=n.get("type"),
+                    metadata=n.get("metadata")
+                )
+            ))
+
+    # 5. Sort unified search results by score descending
+    results.sort(key=lambda x: x.score, reverse=True)
+
+    t1 = time.perf_counter()
+    latency_ms = (t1 - t0) * 1000
+    
+    mem_after = process.memory_info().rss if psutil else 0
+    mem_usage_bytes = max(0, mem_after - mem_before)
+
+    # 6. Generate detailed debugging logs
+    debug_logs = [
+        f"Search query received: {repr(q)}",
+        f"Target workspace (user_id): {user['id']}",
+        f"Associated project count: {len(user_project_ids)}",
+        f"Database indexes utilized: ['projects_text_index', 'nodes_text_index']",
+        f"Unified score-sorted search results count: {len(results)}",
+        f"Query latency: {latency_ms:.2f}ms",
+        f"Memory utilization change: {mem_usage_bytes} bytes",
+    ]
+
+    return SearchResp(
+        results=results,
+        metrics=SearchMetrics(
+            query_latency_ms=latency_ms,
+            indexing_time_ms=INDEXING_TIME_MS,
+            memory_usage_bytes=mem_usage_bytes
+        ),
+        debug_logs=debug_logs
+    )
 
 
 # ---------- meta ----------
