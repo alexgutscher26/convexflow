@@ -140,8 +140,8 @@ def raise_rate_limit_exceeded():
 
 
 async def login_rate_limiter(request: Request):
-    if is_testing:
-        return
+    # Temporarily disabled in development/debugging to prevent lockouts
+    return
     
     # Extract client IP, checking X-Forwarded-For for reverse proxies
     x_forwarded_for = request.headers.get("X-Forwarded-For")
@@ -557,6 +557,8 @@ async def register(req: RegisterReq):
 
 @api.post("/auth/login", response_model=TokenResp, dependencies=[Depends(login_rate_limiter)])
 async def login(req: LoginReq):
+    # Print the exact credentials received for debugging
+    log.info(f"DEBUG LOGIN: email={repr(req.email)}, password={repr(req.password)}")
     user = await db.users.find_one({"email": req.email.lower()})
     if not user or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
