@@ -16,7 +16,6 @@
 - [ ] **[!] Password strength validation** — only a `min_length=6` check exists; enforce complexity rules (uppercase, digit, special char)
 - [ ] **[!] User email verification** — no email confirmation step after registration; users can register with any email they don't own
 - [ ] **[!] Secure logout endpoint** — no `/auth/logout`; tokens can't be invalidated before expiry; implement a token blacklist (Redis or DB)
-
 - [ ] **[!] Remove plaintext PAT from API response** — `pat_stored: bool` is returned, but the raw PAT value may leak in logs; audit all logging statements
 - [ ] **[!] Parameterize all MongoDB queries** — audit for NoSQL injection surface; avoid any `eval` or dynamic `$where` clauses
 - [ ] **[!] Add input sanitization for node content** — large or sndpoints\*\* — verify `assert_project_owner` is called consistently on every mutating endpoint

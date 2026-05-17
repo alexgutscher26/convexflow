@@ -3,7 +3,7 @@ import bcrypt
 import sys
 
 def main():
-    password = sys.argv[1] if len(sys.argv) > 1 else "cortexflow123"
+    password = sys.argv[1] if len(sys.argv) > 1 else "convexflow123"
     email = "workinbox69@gmail.com"
     
     client = pymongo.MongoClient("mongodb://localhost:27017")
