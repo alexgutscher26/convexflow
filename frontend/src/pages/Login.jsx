@@ -30,7 +30,7 @@ export default function Login() {
         <Link to="/" className="flex items-center gap-2" data-testid="login-brand">
           <div className="w-6 h-6 bg-cf-text" />
           <span className="font-display font-black tracking-tighter text-lg">
-            CORTEXFLOW
+            CONVEXFLOW
           </span>
         </Link>
         <div>

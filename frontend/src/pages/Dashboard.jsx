@@ -84,7 +84,7 @@ export default function Dashboard() {
           <Link to="/app" className="flex items-center gap-2" data-testid="dashboard-brand">
             <div className="w-6 h-6 bg-cf-text" />
             <span className="font-display font-black tracking-tighter text-lg">
-              CORTEXFLOW
+              CONVEXFLOW
             </span>
           </Link>
           <div className="flex items-center gap-3 text-xs">

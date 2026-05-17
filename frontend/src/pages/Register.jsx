@@ -20,7 +20,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register(email, password, name);
-      toast.success("Welcome to CortexFlow");
+      toast.success("Welcome to ConvexFlow");
       nav("/app");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Registration failed");
@@ -35,7 +35,7 @@ export default function Register() {
         <Link to="/" className="flex items-center gap-2" data-testid="register-brand">
           <div className="w-6 h-6 bg-cf-text" />
           <span className="font-display font-black tracking-tighter text-lg">
-            CORTEXFLOW
+            CONVEXFLOW
           </span>
         </Link>
         <div>

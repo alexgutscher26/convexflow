@@ -1,0 +1,14 @@
+# Robots.txt for ConvexFlow landing page & application
+# https://www.robotstxt.org/
+
+User-agent: *
+Allow: /
+
+# Exclude sensitive application dashboard and API endpoints
+Disallow: /api/
+Disallow: /admin/
+Disallow: /settings/
+Disallow: /dashboard/
+
+# Sitemap location
+Sitemap: https://convexflow.com/sitemap.xml

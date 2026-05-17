@@ -94,7 +94,7 @@ class DatabaseProxy:
 
 db = DatabaseProxy()
 
-app = FastAPI(title="CortexFlow API")
+app = FastAPI(title="ConvexFlow API")
 
 
 @app.middleware("http")

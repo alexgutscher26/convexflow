@@ -171,7 +171,7 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated, val
             ? "json"
             : "md"
           : "md";
-      a.download = `cortexflow-${tab}-${Date.now()}.${ext}`;
+      a.download = `convexflow-${tab}-${Date.now()}.${ext}`;
     }
     a.click();
     URL.revokeObjectURL(url);

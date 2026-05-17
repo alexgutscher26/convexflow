@@ -9,6 +9,7 @@ import {
   Database,
 } from "@phosphor-icons/react";
 import { NODE_TYPES } from "@/lib/nodeTypes";
+import packageJson from "../../package.json";
 
 const FEATURES = [
   {
@@ -19,7 +20,7 @@ const FEATURES = [
   {
     icon: GitBranch,
     title: "Repo-aware context",
-    body: "Connect a GitHub repo. CortexFlow scans the tree, detects frameworks, and grounds every prompt.",
+    body: "Connect a GitHub repo. ConvexFlow scans the tree, detects frameworks, and grounds every prompt.",
   },
   {
     icon: Brain,
@@ -52,7 +53,7 @@ export default function Landing() {
           <Link to="/" className="flex items-center gap-2" data-testid="brand-logo">
             <div className="w-6 h-6 bg-cf-text" />
             <span className="font-display font-black tracking-tighter text-lg">
-              CORTEXFLOW
+              CONVEXFLOW
             </span>
           </Link>
           <nav className="flex items-center gap-1 text-xs">
@@ -124,7 +125,7 @@ export default function Landing() {
               <span className="text-cf-dim">to every AI.</span>
             </h1>
             <p className="mt-8 text-sm md:text-base text-cf-dim max-w-2xl leading-relaxed">
-              CortexFlow turns your project intent into a graph of connected
+              ConvexFlow turns your project intent into a graph of connected
               nodes — architecture, schemas, APIs, conventions — then composes
               repository-aware prompts your AI agents actually follow.
             </p>
@@ -275,7 +276,7 @@ export default function Landing() {
               "Drag in nodes: product overview, architecture, schemas, API contracts.",
               "Link nodes to express dependencies and inheritance.",
               "Tag files from the repo tree directly to architecture nodes.",
-              "Pick a prompt template; CortexFlow composes a structured prompt.",
+              "Pick a prompt template; ConvexFlow composes a structured prompt.",
               "Export Markdown PRD, JSON graph, or AI-agent context pack.",
             ].map((step, i) => (
               <li
@@ -314,7 +315,7 @@ export default function Landing() {
 
       {/* footer */}
       <footer className="max-w-7xl mx-auto px-6 lg:px-10 py-8 flex items-center justify-between flex-wrap gap-4 text-xs text-cf-mute">
-        <div>© {new Date().getFullYear()} CortexFlow. Built for AI-native devs.</div>
+        <div>© {new Date().getFullYear()} ConvexFlow v{packageJson.version}. Built for AI-native devs.</div>
         <div className="flex gap-4">
           <Link to="/login" className="hover:text-cf-text">Sign in</Link>
           <Link to="/register" className="hover:text-cf-text">Get started</Link>
