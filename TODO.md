@@ -24,7 +24,7 @@
 
 ### Known Bugs
 
-- [ ] **[!] Missing `src/proxy.ts` crashes middleware** — Next.js middleware references `./src/proxy.ts` which does not exist, causing a `MODULE_UNPARSABLE` error on every request; create or remove the stale import to restore clean middleware execution
+- [x] **[!] Missing `src/proxy.ts` crashes middleware** — Next.js 16 renamed the convention from `middleware.ts` → `proxy.ts`; migrated CORS logic to `src/proxy.ts` (export renamed to `proxy`), removed deprecated `src/middleware.ts`, cleared `.next` cache
 
 ---
 
