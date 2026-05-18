@@ -26,6 +26,8 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
   const [mode, setMode] = useState("edit"); // edit | preview
   const [aiLoading, setAiLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState({ nodes: [], files: [] });
+  const [sugLoading, setSugLoading] = useState(false);
   const saveTimer = useRef(null);
   const pendingPatch = useRef({});
   const runAIRef = useRef(null);
@@ -34,6 +36,33 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
     setDraft(node || null);
     pendingPatch.current = {};
     if (saveTimer.current) clearTimeout(saveTimer.current);
+
+    if (!node || ["GitHub Context", "Prompt Output"].includes(node.type)) {
+      setSuggestions({ nodes: [], files: [] });
+      return;
+    }
+
+    let active = true;
+    const fetchSuggestions = async () => {
+      setSugLoading(true);
+      try {
+        const { data } = await api.get(
+          `/projects/${node.project_id}/semantic-suggest?node_id=${node.id}&limit=3`
+        );
+        if (active) {
+          setSuggestions(data);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch semantic suggestions:", e);
+      } finally {
+        if (active) setSugLoading(false);
+      }
+    };
+
+    fetchSuggestions();
+    return () => {
+      active = false;
+    };
   }, [node?.id]);
 
   useEffect(() => {
@@ -372,6 +401,96 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
           </ul>
         )}
       </div>
+
+      {/* Semantic Recommendations Section */}
+      {!["GitHub Context", "Prompt Output"].includes(current.type) && (
+        <div className="px-4 py-3 border-b border-cf-line bg-cf-bg/15">
+          <span className="overline mb-2 block flex items-center gap-1.5 text-emerald-400 font-bold tracking-wider">
+            <Sparkle size={12} weight="fill" />
+            SEMANTIC SUGGESTIONS
+          </span>
+          {sugLoading ? (
+            <p className="text-[11px] text-cf-mute animate-pulse">Computing matches...</p>
+          ) : (!suggestions?.nodes?.length && !suggestions?.files?.length) ? (
+            <p className="text-[11px] text-cf-mute leading-relaxed">
+              No strong relationships detected yet. Build your semantic index in the REPO tab.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {suggestions.nodes && suggestions.nodes.length > 0 && (
+                <div>
+                  <div className="text-[9px] uppercase tracking-widest text-cf-mute mb-1 font-bold">
+                    Related Nodes
+                  </div>
+                  <ul className="space-y-1">
+                    {suggestions.nodes.map((n) => (
+                      <li
+                        key={n.id}
+                        className="text-[11px] text-cf-dim hover:text-cf-text transition-colors flex items-center justify-between py-0.5"
+                      >
+                        <span className="truncate flex-1" title={n.title}>
+                          {n.title}
+                        </span>
+                        <span className="text-[9px] text-cf-mute ml-2 shrink-0 bg-cf-elev px-1 rounded font-mono">
+                          {Math.round(n.similarity * 100)}%
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {suggestions.files && suggestions.files.length > 0 && (
+                <div>
+                  <div className="text-[9px] uppercase tracking-widest text-cf-mute mb-1 font-bold">
+                    Suggested Code Files
+                  </div>
+                  <ul className="space-y-1">
+                    {suggestions.files.map((f) => {
+                      const alreadyAttached = (current.file_references || []).includes(f.path);
+                      return (
+                        <li
+                          key={f.path}
+                          className="flex items-center justify-between text-[11px] bg-cf-bg/40 border border-cf-line/40 px-2 py-1"
+                        >
+                          <span
+                            className="truncate flex-1 text-cf-dim cursor-help"
+                            title={f.path}
+                          >
+                            {f.path.split("/").pop()}
+                          </span>
+                          <span className="text-[9px] text-cf-mute mx-2 shrink-0 font-mono">
+                            {Math.round(f.similarity * 100)}%
+                          </span>
+                          {alreadyAttached ? (
+                            <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
+                              Attached
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const next = [...(current.file_references || [])];
+                                if (!next.includes(f.path)) {
+                                  next.push(f.path);
+                                  persist({ file_references: next });
+                                  toast.success(`Attached ${f.path.split("/").pop()}`);
+                                }
+                              }}
+                              className="text-[9px] text-cf-text hover:text-emerald-400 font-bold uppercase tracking-wider"
+                            >
+                              Attach
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-auto px-4 py-3 border-t border-cf-line">
         <button

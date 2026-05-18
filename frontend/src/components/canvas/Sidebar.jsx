@@ -105,6 +105,32 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
   const [branch, setBranch] = useState("main");
   const [pat, setPat] = useState("");
   const [working, setWorking] = useState(false);
+  const [indexing, setIndexing] = useState(false);
+
+  const buildSemanticIndex = async () => {
+    setIndexing(true);
+    try {
+      const { data } = await api.post(`/projects/${project.id}/semantic-index`);
+      if (data.success) {
+        toast.success(
+          `Semantic index built · Vectorized ${data.nodes_indexed} nodes and ${data.files_indexed} codebase files!`
+        );
+        if (onProjectUpdate) {
+          onProjectUpdate({
+            ...project,
+            repository: {
+              ...(project.repository || {}),
+              semantic_indexed_at: new Date().toISOString(),
+            },
+          });
+        }
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Indexing failed");
+    } finally {
+      setIndexing(false);
+    }
+  };
 
   const repository = project?.repository;
 
@@ -126,6 +152,7 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
       const { stale_summary, ...repoOnly } = scan.data;
       onProjectUpdate({ ...project, repository: repoOnly });
       toast.success(`Scan complete · ${repoOnly.frameworks?.length || 0} frameworks`);
+      api.post(`/projects/${project.id}/semantic-index`).catch(err => console.warn("Background index failed:", err));
     } catch (e) {
       toast.error(e.response?.data?.detail || "Connect failed");
     } finally {
@@ -154,6 +181,7 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
       } else {
         toast.success("Rescan complete · all file references up to date");
       }
+      api.post(`/projects/${project.id}/semantic-index`).catch(err => console.warn("Background index failed:", err));
     } catch (e) {
       toast.error(e.response?.data?.detail || "Rescan failed");
     } finally {
@@ -277,7 +305,7 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
                 )}
                 <button
                   onClick={rescan}
-                  disabled={working}
+                  disabled={working || indexing}
                   className="cf-btn w-full mt-3 border border-cf-line py-1.5 text-[10px] uppercase tracking-widest font-bold text-cf-dim hover:bg-cf-elev hover:text-cf-text transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   data-testid="refresh-repository-button"
                   title="Re-pull file tree from GitHub and flag stale references"
@@ -287,6 +315,19 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
                     className={working ? "animate-spin" : ""}
                   />
                   {working ? "REFRESHING..." : "REFRESH REPOSITORY"}
+                </button>
+                <button
+                  onClick={buildSemanticIndex}
+                  disabled={working || indexing}
+                  className="cf-btn w-full mt-2 border border-cf-line py-1.5 text-[10px] uppercase tracking-widest font-bold text-cf-dim hover:bg-cf-elev hover:text-cf-text transition-colors disabled:opacity-50 flex items-center justify-center gap-2 border-emerald-950/40 text-emerald-400 hover:border-emerald-500/50"
+                  data-testid="semantic-index-button"
+                  title="Build vector embeddings for requirements and codebase files to enable semantic context discovery"
+                >
+                  <Sparkle
+                    size={11}
+                    className={indexing ? "animate-spin" : ""}
+                  />
+                  {indexing ? "INDEXING CODE..." : "BUILD SEMANTIC INDEX"}
                 </button>
               </div>
               <div className="px-3 py-2 overline border-b border-cf-line flex items-center justify-between">

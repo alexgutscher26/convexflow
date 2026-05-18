@@ -18,7 +18,7 @@
 - [ ] **[!] Add CSRF protection** — implement double-submit cookie or `SameSite=Strict` + custom header pattern for all state-mutating endpoints
 - [ ] **[!] Password strength validation** — `RegisterSchema` only enforces `min(6)`; add complexity rules (uppercase, digit, special char) using a Zod `refine()`
 - [ ] **[!] User email verification** — no email confirmation after registration; users access the dashboard with any unverified email
-- [ ] **[!] Remove plaintext PAT from API response** — audit all logging statements to confirm raw PAT values never appear in server logs
+- [ ] **[!] Remove plaintext PAT from API response** — audit all logging statements to confirm raw PAT values nev1er appear in server logs
 - [ ] **[!] Parameterize all MongoDB queries** — audit every collection query for NoSQL injection; avoid dynamic `$where` or `eval` clauses
 - [ ] **[!] Add input sanitization for node content on create/update** — `sanitizeAndNormalizeText()` exists in `src/lib/sanitize.ts` but must be wired into all node mutation routes
 
