@@ -2,6 +2,26 @@
 
 ConvexFlow (also known as CortexFlow MVP) is a full-stack application for managing projects, nodes, and edges, with GitHub repository synchronization and AI-powered helpers. It allows you to visualize and manage software architectures, PRDs, and implementation plans using an interactive node-based graph.
 
+## Core Differentiation
+
+Unlike traditional PRD tools or document editors, convexflow is:
+
+- **graph-native** instead of document-native
+- **repository-aware** instead of context-blind
+- **AI execution-oriented** instead of human-only documentation
+- **modular** instead of monolithic
+- **persistent** instead of session-based
+
+The platform combines:
+
+- visual workflow systems
+- AI prompt orchestration
+- repository intelligence
+- architecture memory
+- structured implementation planning
+
+into a single developer workflow layer.
+
 ## Features
 
 - **Interactive Node Graph**: Build and visualize relationships between components, user stories, and architecture nodes using React Flow.
