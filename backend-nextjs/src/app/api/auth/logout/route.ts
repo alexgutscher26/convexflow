@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { getDb } from "@/lib/mongodb";
-import { JWT_SECRET, JWT_ALGO, TokenPayload } from "@/lib/auth";
+import { JWT_SECRET, JWT_REFRESH_SECRET, JWT_ALGO, TokenPayload } from "@/lib/auth";
 
 const LogoutSchema = z.object({
   refresh_token: z.string(),
@@ -16,7 +16,11 @@ export async function POST(req: Request) {
     if (result.success) {
       const { refresh_token } = result.data;
       try {
-        const payload = jwt.verify(refresh_token, JWT_SECRET, { algorithms: [JWT_ALGO] }) as TokenPayload;
+        const payload = jwt.verify(refresh_token, JWT_REFRESH_SECRET, { 
+          algorithms: [JWT_ALGO],
+          audience: "convexflow-client",
+          issuer: "convexflow-auth"
+        }) as TokenPayload;
         if (payload.type === "refresh") {
           const jti = payload.jti;
           const db = await getDb();

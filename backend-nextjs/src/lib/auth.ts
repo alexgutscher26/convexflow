@@ -38,7 +38,11 @@ export function createAccessToken(userId: string): string {
     exp: now + expiryMinutes * 60,
     type: "access",
   };
-  return jwt.sign(payload, JWT_SECRET, { algorithm: JWT_ALGO });
+  return jwt.sign(payload, JWT_SECRET, { 
+    algorithm: JWT_ALGO,
+    audience: "convexflow-client",
+    issuer: "convexflow-auth"
+  });
 }
 
 export async function createRefreshToken(userId: string): Promise<string> {
@@ -64,7 +68,11 @@ export async function createRefreshToken(userId: string): Promise<string> {
     created_at: new Date().toISOString(),
   });
 
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { algorithm: JWT_ALGO });
+  return jwt.sign(payload, JWT_REFRESH_SECRET, { 
+    algorithm: JWT_ALGO,
+    audience: "convexflow-client",
+    issuer: "convexflow-auth"
+  });
 }
 
 export async function getCurrentUser(req: Request): Promise<any> {
@@ -81,7 +89,11 @@ export async function getCurrentUser(req: Request): Promise<any> {
   const token = parts[1];
   let payload: TokenPayload;
   try {
-    payload = jwt.verify(token, JWT_SECRET, { algorithms: [JWT_ALGO] }) as TokenPayload;
+    payload = jwt.verify(token, JWT_SECRET, { 
+      algorithms: [JWT_ALGO],
+      audience: "convexflow-client",
+      issuer: "convexflow-auth"
+    }) as TokenPayload;
   } catch (err) {
     throw new Error("Invalid token");
   }

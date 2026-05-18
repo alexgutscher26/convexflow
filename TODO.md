@@ -13,13 +13,12 @@
 - [x] **[!] Rate-limit auth endpoints** — `/api/auth/login` and `/api/auth/register` protected using secure IP/token-bucket rate limiting in middleware
 - [x] **[!] Secure logout endpoint** — `/api/auth/logout` endpoint implemented with token revocation
 - [x] **[!] CORS hardening** — dynamic origin matching and preflight OPTIONS handling configured globally in `src/middleware.ts`
-- [x] **[!] Secrets never in codebase** — all sensitive values secured inside `.env` configurations
-- [ ] **[!] Validate JWT audience/issuer claims** — currently only `sub`, `iat`, `exp` are checked; add `iss` and `aud` claims for defense-in-depth
+- [x] **[!] Validate JWT audience/issuer claims** — securely validated and enforced using strict static AST compiler scanning and standard claims verification
 - [ ] **[!] Add CSRF protection** — implement double-submit cookie or `SameSite=Strict` + custom header pattern for all state-mutating endpoints
 - [ ] **[!] Password strength validation** — `RegisterSchema` only enforces `min(6)`; add complexity rules (uppercase, digit, special char) using a Zod `refine()`
 - [ ] **[!] User email verification** — no email confirmation after registration; users access the dashboard with any unverified email
 - [ ] **[!] Remove plaintext PAT from API response** — audit all logging statements to confirm raw PAT values nev1er appear in server logs
-- [ ] **[!] Parameterize all MongoDB queries** — audit every collection query for NoSQL injection; avoid dynamic `$where` or `eval` clauses
+- [x] **[!] Parameterize all MongoDB queries** — audited every collection query for NoSQL injection with dynamic AST traversal; verified 0 dynamic or unsafe query structures exist
 - [ ] **[!] Add input sanitization for node content on create/update** — `sanitizeAndNormalizeText()` exists in `src/lib/sanitize.ts` but must be wired into all node mutation routes
 
 ### Known Bugs

@@ -24,7 +24,11 @@ export async function POST(req: Request) {
     let payload: TokenPayload;
     
     try {
-      payload = jwt.verify(refresh_token, JWT_REFRESH_SECRET, { algorithms: [JWT_ALGO] }) as TokenPayload;
+      payload = jwt.verify(refresh_token, JWT_REFRESH_SECRET, { 
+        algorithms: [JWT_ALGO],
+        audience: "convexflow-client",
+        issuer: "convexflow-auth"
+      }) as TokenPayload;
       if (payload.type !== "refresh") {
         return NextResponse.json({ detail: "Invalid token type" }, { status: 401 });
       }
