@@ -25,6 +25,8 @@
 ### Known Bugs
 
 - [x] **[!] Missing `src/proxy.ts` crashes middleware** — Next.js 16 renamed the convention from `middleware.ts` → `proxy.ts`; migrated CORS logic to `src/proxy.ts` (export renamed to `proxy`), removed deprecated `src/middleware.ts`, cleared `.next` cache
+- [x] **[!] "Invalid token" on prompt generation** — `JWT_SECRET` was still the insecure placeholder default (`replace_me_with_a_long_random_string`); generated real secrets, added separate `JWT_REFRESH_SECRET` for refresh tokens, fixed `refresh/route.ts` to verify with the correct secret, set `ACCESS_TOKEN_EXPIRE_MINUTES=1440` for local dev
+
 
 ---
 

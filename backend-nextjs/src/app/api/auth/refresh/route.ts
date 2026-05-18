@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { getDb } from "@/lib/mongodb";
-import { JWT_SECRET, JWT_ALGO, createAccessToken, createRefreshToken, TokenPayload } from "@/lib/auth";
+import { JWT_SECRET, JWT_REFRESH_SECRET, JWT_ALGO, createAccessToken, createRefreshToken, TokenPayload } from "@/lib/auth";
 
 const RefreshSchema = z.object({
   refresh_token: z.string(),
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     let payload: TokenPayload;
     
     try {
-      payload = jwt.verify(refresh_token, JWT_SECRET, { algorithms: [JWT_ALGO] }) as TokenPayload;
+      payload = jwt.verify(refresh_token, JWT_REFRESH_SECRET, { algorithms: [JWT_ALGO] }) as TokenPayload;
       if (payload.type !== "refresh") {
         return NextResponse.json({ detail: "Invalid token type" }, { status: 401 });
       }

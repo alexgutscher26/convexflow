@@ -17,6 +17,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 
 export const JWT_SECRET = process.env.JWT_SECRET || "replace_me_with_a_long_random_string";
+export const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || JWT_SECRET;
 export const JWT_ALGO = (process.env.JWT_ALGORITHM || "HS256") as jwt.Algorithm;
 
 export interface TokenPayload {
@@ -63,7 +64,7 @@ export async function createRefreshToken(userId: string): Promise<string> {
     created_at: new Date().toISOString(),
   });
 
-  return jwt.sign(payload, JWT_SECRET, { algorithm: JWT_ALGO });
+  return jwt.sign(payload, JWT_REFRESH_SECRET, { algorithm: JWT_ALGO });
 }
 
 export async function getCurrentUser(req: Request): Promise<any> {
