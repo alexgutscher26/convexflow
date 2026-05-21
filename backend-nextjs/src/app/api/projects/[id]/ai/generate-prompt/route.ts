@@ -13,7 +13,77 @@ const AIPromptSchema = z.object({
   focus_node_ids: z.array(z.string()).default([]),
   extra_instructions: z.string().default(""),
   link_prior_prompts: z.boolean().default(true),
+  persona: z.enum([
+    "cursor", "claude_code", "copilot", "windsurf", "aider",
+    "continue", "pearai", "antigravity", "generic"
+  ]).default("generic"),
 });
+
+const PERSONA_INSTRUCTIONS: Record<string, string> = {
+  cursor: (
+    "Structure the output specifically for Cursor Agent (Composer/Agent mode). " +
+    "The generated prompt should tell Cursor Agent to work step-by-step, edit multiple files incrementally, " +
+    "and use relative paths. The prompt must be structured with these H2 sections in order:\n" +
+    "## Target Files\n## Objective\n## Context & Constraints\n## Step-by-Step Instructions\n## Verification & Tests\n\n" +
+    "Calibrate the tone of the prompt to be highly actionable, direct, and instruction-dense for a file-editing agent."
+  ),
+  claude_code: (
+    "Structure the output specifically for Claude Code CLI. " +
+    "The generated prompt should instruct Claude Code to operate in a terminal, utilize commands (like grep, find, npm test, etc.), " +
+    "and perform direct source modifications. The prompt must be structured with these H2 sections in order:\n" +
+    "## CLI Command Checklist\n## Objective\n## Key Codebases & Grep Targets\n## Refactoring & Implementation Steps\n## CLI Verification\n\n" +
+    "Calibrate the tone of the prompt to be extremely dry, compact, and command-centric, assuming a powerful CLI sandbox environment."
+  ),
+  copilot: (
+    "Structure the output specifically for GitHub Copilot Chat (inline editor/side panel). " +
+    "The generated prompt should tell Copilot to provide clear explanations, clean helper blocks, and full-snippet implementations " +
+    "suitable for inline application or copying. The prompt must be structured with these H2 sections in order:\n" +
+    "## Objective\n## Context & Constraints\n## Code Implementation Details\n## Verification & Example Usage\n\n" +
+    "Calibrate the tone of the prompt to be helpful, standard developer assistance style, with descriptive inline comments."
+  ),
+  windsurf: (
+    "Structure the output specifically for Windsurf Cascade (Agent/Cascade mode). " +
+    "The generated prompt should tell Windsurf Cascade to focus on context preservation, codebase understanding, and modular changes. " +
+    "The prompt must be structured with these H2 sections in order:\n" +
+    "## Context\n## Objective\n## Architecture Decisions\n## Implementation Steps\n## Verification Plan\n\n" +
+    "Calibrate the tone to be clean, structural, and explicit about dependencies and architectural bounds."
+  ),
+  aider: (
+    "Structure the output specifically for Aider CLI. " +
+    "The generated prompt should instruct Aider to modify files directly in git, using precise editing blocks. " +
+    "The prompt must be structured with these H2 sections in order:\n" +
+    "## Target Files\n## Objective\n## Requested Changes\n## Code Context\n\n" +
+    "Calibrate the tone to be extremely concise and directive, tailored for direct git diff application and avoiding long conversational overhead."
+  ),
+  continue: (
+    "Structure the output specifically for Continue.dev (VS Code/JetBrains extension). " +
+    "The generated prompt should assume the developer will review and insert code blocks manually. " +
+    "The prompt must be structured with these H2 sections in order:\n" +
+    "## Objective\n## File Context\n## Execution Steps\n## Verification & Usage\n\n" +
+    "Calibrate the tone to be explanation-friendly, structured, and easy to copy-paste into local workspaces."
+  ),
+  pearai: (
+    "Structure the output specifically for PearAI Creator (PearAI Agent). " +
+    "The generated prompt should instruct PearAI to perform step-by-step reasoning and full module replacements where necessary. " +
+    "The prompt must be structured with these H2 sections in order:\n" +
+    "## Goals\n## Code Reference\n## Step-by-Step Instructions\n## Testing & Validation\n\n" +
+    "Calibrate the tone to be supportive, instructional, and focused on clean modular implementations."
+  ),
+  antigravity: (
+    "Structure the output specifically for Antigravity (Google DeepMind's agentic AI coding assistant). " +
+    "The generated prompt should instruct Antigravity to perform rigorous planning, follow clean-code principles, " +
+    "operate in Windows PowerShell environments, and utilize automated checklists or verification scripts (e.g., checklist.py, verify_all.py). " +
+    "The prompt must be structured with these H2 sections in order:\n" +
+    "## Objective\n## Implementation Plan\n## Proposed Changes\n## Verification Plan\n\n" +
+    "Calibrate the tone of the prompt to be highly technical, structured, precise, and instruction-dense."
+  ),
+  generic: (
+    "Structure the output specifically for a generic autonomous agent. " +
+    "The prompt must be structured with these H2 sections in order:\n" +
+    "## Objective\n## Repository Context\n## Constraints\n## Required Deliverables\n## Validation Requirements\n## Output Format\n\n" +
+    "Calibrate the tone to be structured, professional, and thorough."
+  ),
+};
 
 const SYSTEM_MESSAGE = (
   "You are CortexFlow's architecture co-pilot. You help senior " +
@@ -148,14 +218,11 @@ export async function POST(
     };
     
     const brief = TEMPLATE_BRIEFS[reqData.template] || TEMPLATE_BRIEFS.feature_implementation;
+    const personaInst = PERSONA_INSTRUCTIONS[reqData.persona] || PERSONA_INSTRUCTIONS.generic;
     
     const prompt = (
       `# Task\n${brief}\n\n` +
-      `Output a single self-contained markdown prompt suitable for pasting ` +
-      `into Cursor / GitHub Copilot Chat / Claude Code. Structure the ` +
-      `output with these H2 sections in order:\n` +
-      `## Objective\n## Repository Context\n## Constraints\n` +
-      `## Required Deliverables\n## Validation Requirements\n## Output Format\n\n` +
+      `Output a single self-contained markdown prompt. ${personaInst}\n\n` +
       `Use the structured project graph below to ground every section.\n\n` +
       `## Extra user instructions\n${reqData.extra_instructions || "(none)"}\n\n` +
       `## Project graph (JSON)\n\`\`\`json\n${JSON.stringify(context, null, 2).slice(0, 12000)}\n\`\`\`\n` +
@@ -171,11 +238,13 @@ export async function POST(
       prompt_text: reply,
       extra_instructions: reqData.extra_instructions,
       focus_node_ids: reqData.focus_node_ids,
+      persona: reqData.persona,
     });
     
     return NextResponse.json({
       prompt: reply,
       template: reqData.template,
+      persona: reqData.persona,
     });
   } catch (err: any) {
     const status = err.status || 500;

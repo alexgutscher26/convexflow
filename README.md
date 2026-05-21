@@ -44,9 +44,9 @@ into a single developer workflow layer.
 
 ### Backend
 
-- **Framework**: FastAPI (Python)
-- **Database**: MongoDB (Motor for async operations)
-- **Authentication**: PyJWT, Bcrypt
+- **Framework**: Next.js (Node.js / TypeScript)
+- **Database**: MongoDB (Official NodeJS driver)
+- **Authentication**: JWT, Bcrypt password hashing
 - **AI Integrations**: Custom LLM integration (supports cloud LLMs & local LLMs)
 
 ## Getting Started
@@ -54,7 +54,6 @@ into a single developer workflow layer.
 ### Prerequisites
 
 - Node.js (v18+)
-- Python (3.10+)
 - MongoDB instance running locally or via Atlas
 
 ### Backend Setup
@@ -62,44 +61,40 @@ into a single developer workflow layer.
 1. Navigate to the backend directory:
 
    ```bash
-   cd backend
+   cd backend-nextjs
    ```
 
-2. Create a virtual environment and install dependencies:
+2. Install dependencies:
 
    ```bash
-   python -m venv venv
-   # On Windows:
-   venv\Scripts\activate
-   # On macOS/Linux:
-   source venv/bin/activate
-
-   pip install -r requirements.txt
+   npm install
+   # or
+   yarn install
    ```
 
 3. Configure environment variables:
-   Ensure you have a `.env` file in the `backend` directory. Here is an example of what it should contain:
+   Ensure you have a `.env` file in the `backend-nextjs` directory. Here is an example of what it should contain:
 
    ```env
    MONGO_URL=mongodb://localhost:27017
    DB_NAME=convexflow
    JWT_SECRET=your_super_secret_key
+   JWT_REFRESH_SECRET=your_refresh_secret_key
    JWT_ALGORITHM=HS256
-   JWT_EXPIRY_DAYS=30
-   EMERGENT_LLM_KEY=your_api_key  # Optional, if using cloud LLM
-   USE_LOCAL_LLM=true             # Set to true to use local LLM
+   ACCESS_TOKEN_EXPIRE_MINUTES=1440
+   REFRESH_TOKEN_EXPIRE_DAYS=30
+   USE_LOCAL_LLM=true
    LOCAL_LLM_URL=http://localhost:11434/v1
    LOCAL_LLM_MODEL=llama3
+   PAT_ENCRYPTION_KEY=your_pat_encryption_key
    ```
 
 4. Start the backend server:
-   If you are in the project root directory:
+
    ```bash
-   python -m uvicorn server:app --reload --app-dir backend
-   ```
-   Or if you are already inside the `backend` directory:
-   ```bash
-   python -m uvicorn server:app --reload
+   npm run dev
+   # or
+   yarn dev
    ```
    The API will be available at `http://localhost:8000`.
 

@@ -27,10 +27,23 @@ const EXPORTS = [
   { value: "json", label: "JSON graph" },
 ];
 
+const PERSONAS = [
+  { value: "generic", label: "Generic Agent" },
+  { value: "cursor", label: "Cursor Agent" },
+  { value: "claude_code", label: "Claude Code" },
+  { value: "copilot", label: "Copilot" },
+  { value: "windsurf", label: "Windsurf Cascade" },
+  { value: "aider", label: "Aider CLI" },
+  { value: "continue", label: "Continue.dev" },
+  { value: "pearai", label: "PearAI Creator" },
+  { value: "antigravity", label: "Antigravity Agent" },
+];
+
 export default function Console({ projectId, selectedNodeIds, onNodeCreated, validation, onShowValidation }) {
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState("prompt");
   const [template, setTemplate] = useState("feature_implementation");
+  const [persona, setPersona] = useState("generic");
   const [extra, setExtra] = useState("");
   const [exportFmt, setExportFmt] = useState("markdown");
   const [output, setOutput] = useState("");
@@ -75,6 +88,7 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated, val
           focus_node_ids: selectedNodeIds,
           extra_instructions: extra,
           link_prior_prompts: linkPrior,
+          persona,
         },
       );
       setOutput(data.prompt);
@@ -269,6 +283,17 @@ export default function Console({ projectId, selectedNodeIds, onNodeCreated, val
                 >
                   {TEMPLATES.map((t) => (
                     <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+                <div className="overline mt-3 mb-2">▸ TARGET PERSONA</div>
+                <select
+                  value={persona}
+                  onChange={(e) => setPersona(e.target.value)}
+                  className="w-full bg-cf-bg border border-cf-line px-2 py-1.5 text-[12px] focus:outline-none focus:border-cf-text"
+                  data-testid="prompt-persona-select"
+                >
+                  {PERSONAS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
                   ))}
                 </select>
                 <div className="overline mt-3 mb-2">
