@@ -268,6 +268,7 @@ function CanvasInner() {
     return () => window.removeEventListener("keydown", handler);
   }, [selectedId]);
 
+
   // sync rawNodes -> rf nodes when data changes (for content / title preview etc)
   useEffect(() => {
     setNodes((rfNodes) =>
@@ -407,6 +408,35 @@ function CanvasInner() {
     }
   }, [markSaving, markSaved, scheduleValidation]);
 
+  const applyConstraintToNode = useCallback(async (nodeId, constraintText) => {
+    const node = rawNodes.find((n) => n.id === nodeId);
+    if (!node) return;
+
+    const currentContent = node.content || "";
+    const prefix = currentContent.length > 0 ? (currentContent.endsWith("\n") ? "" : "\n") : "";
+    const formattedConstraint = constraintText.trim().startsWith("-")
+      ? constraintText.trim()
+      : `- ${constraintText.trim()}`;
+    const newContent = `${currentContent}${prefix}${formattedConstraint}`;
+
+    await updateNode(nodeId, { content: newContent });
+    toast.success("Applied coding rule!");
+  }, [rawNodes, updateNode]);
+
+  const applyConstraintRef = useRef(applyConstraintToNode);
+  useEffect(() => {
+    applyConstraintRef.current = applyConstraintToNode;
+  }, [applyConstraintToNode]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { nodeId, constraint } = e.detail;
+      applyConstraintRef.current?.(nodeId, constraint);
+    };
+    window.addEventListener("cf-apply-constraint", handler);
+    return () => window.removeEventListener("cf-apply-constraint", handler);
+  }, []);
+
   const deleteNode = useCallback(
     async (nodeId) => {
       if (!window.confirm("Delete node?")) return;
@@ -423,7 +453,7 @@ function CanvasInner() {
         toast.error("Delete failed");
       }
     },
-    [selectedId],
+    [selectedId, scheduleValidation],
   );
 
   const attachFile = useCallback(

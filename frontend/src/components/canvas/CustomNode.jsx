@@ -1,9 +1,10 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Handle, Position } from "reactflow";
 import { CheckCircle } from "@phosphor-icons/react";
 import { NODE_TYPE_MAP } from "@/lib/nodeTypes";
 
-function CustomNodeBase({ data, selected }) {
+function CustomNodeBase({ id, data, selected }) {
+  const [isDragOver, setIsDragOver] = useState(false);
   const cfg = NODE_TYPE_MAP[data.type] || NODE_TYPE_MAP["Product Overview"];
   const Icon = cfg.icon;
   const content = (data.content || "").trim();
@@ -24,19 +25,47 @@ function CustomNodeBase({ data, selected }) {
           ? "#60A5FA"
           : null;
   const staleBorder = !sevColor && staleCount > 0 ? "#FB923C" : null;
-  const borderColor = sevColor || staleBorder || cfg.border;
+  const isTargetType = data.type === "AI Coding Rules";
+  const dragActive = isDragOver && isTargetType;
+  const borderColor = dragActive ? "#22d3ee" : (sevColor || staleBorder || cfg.border);
 
   return (
     <div
-      className="font-mono relative"
+      className="font-mono relative transition-all duration-150"
       style={{
         width: 260,
         background: "#0a0a0b",
         border: `1px solid ${borderColor}`,
-        boxShadow: selected
-          ? `4px 4px 0 ${cfg.bg}`
-          : "0 0 0 transparent",
-        transition: "box-shadow 80ms ease-out",
+        boxShadow: dragActive
+          ? "0 0 14px rgba(34, 211, 238, 0.4)"
+          : (selected
+            ? `4px 4px 0 ${cfg.bg}`
+            : "0 0 0 transparent"),
+      }}
+      onDragOver={(e) => {
+        if (isTargetType && e.dataTransfer.types.includes("application/cf-constraint")) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(true);
+        }
+      }}
+      onDragLeave={() => {
+        setIsDragOver(false);
+      }}
+      onDrop={(e) => {
+        if (isTargetType) {
+          const constraintText = e.dataTransfer.getData("application/cf-constraint");
+          if (constraintText) {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragOver(false);
+            const event = new CustomEvent("cf-apply-constraint", {
+              detail: { nodeId: id, constraint: constraintText },
+              bubbles: true,
+            });
+            e.currentTarget.dispatchEvent(event);
+          }
+        }
       }}
       data-testid={`canvas-node-${cfg.short.toLowerCase()}`}
     >

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   GithubLogo,
@@ -8,6 +8,9 @@ import {
   CaretDown,
   CaretRight,
   Sparkle,
+  Trash,
+  Plus,
+  MagnifyingGlass,
 } from "@phosphor-icons/react";
 import { NODE_TYPES } from "@/lib/nodeTypes";
 import { api } from "@/lib/api";
@@ -106,6 +109,71 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
   const [pat, setPat] = useState("");
   const [working, setWorking] = useState(false);
   const [indexing, setIndexing] = useState(false);
+
+  const [constraints, setConstraints] = useState([]);
+  const [constraintsLoading, setConstraintsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+
+  // New constraint form state
+  const [newText, setNewText] = useState("");
+  const [newCategory, setNewCategory] = useState("Code Quality");
+
+  const fetchConstraints = async () => {
+    setConstraintsLoading(true);
+    try {
+      const { data } = await api.get("/constraints");
+      setConstraints(data);
+    } catch (e) {
+      toast.error("Failed to load constraint library");
+    } finally {
+      setConstraintsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "library") {
+      fetchConstraints();
+    }
+  }, [tab]);
+
+  const handleAddConstraint = async (e) => {
+    e.preventDefault();
+    if (!newText.trim()) return;
+    try {
+      const { data } = await api.post("/constraints", {
+        text: newText.trim(),
+        category: newCategory.trim() || "General",
+      });
+      setConstraints((prev) => [data, ...prev]);
+      setNewText("");
+      toast.success("Constraint added to library");
+      window.dispatchEvent(new CustomEvent("cf-constraints-updated"));
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Failed to add constraint");
+    }
+  };
+
+  const handleDeleteConstraint = async (id) => {
+    try {
+      await api.delete(`/constraints/${id}`);
+      setConstraints((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Constraint removed");
+      window.dispatchEvent(new CustomEvent("cf-constraints-updated"));
+    } catch (e) {
+      toast.error("Failed to delete constraint");
+    }
+  };
+
+  const categories = ["All", ...new Set(constraints.map((c) => c.category))];
+
+  const filteredConstraints = constraints.filter((c) => {
+    const matchesSearch =
+      c.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === "All" || c.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const buildSemanticIndex = async () => {
     setIndexing(true);
@@ -213,6 +281,17 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
           data-testid="sidebar-tab-repo"
         >
           REPO
+        </button>
+        <button
+          onClick={() => setTab("library")}
+          className={`flex-1 px-3 py-2 text-[10px] uppercase tracking-widest font-bold border-l border-cf-line transition-colors ${
+            tab === "library"
+              ? "bg-cf-elev text-cf-text"
+              : "text-cf-dim hover:bg-cf-elev"
+          }`}
+          data-testid="sidebar-tab-library"
+        >
+          LIBRARY
         </button>
       </div>
 
@@ -360,6 +439,128 @@ export default function Sidebar({ project, onProjectUpdate, onDragNode, onAttach
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "library" && (
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-cf-bg" data-testid="sidebar-library-panel">
+          <div className="px-3 py-2 overline border-b border-cf-line shrink-0">
+            ▸ CONSTRAINT LIBRARY
+          </div>
+
+          {/* Search and Category Filter */}
+          <div className="p-3 border-b border-cf-line shrink-0 space-y-2">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search rules..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-cf-bg border border-cf-line pl-7 pr-2 py-1 text-[11px] focus:outline-none focus:border-cf-text font-mono text-cf-text"
+                data-testid="constraint-search-input"
+              />
+              <MagnifyingGlass size={10} className="absolute left-2.5 top-2 text-cf-mute" />
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[10px]">
+              <span className="text-cf-mute font-bold">CATEGORY:</span>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="flex-1 bg-cf-bg border border-cf-line px-1 py-0.5 text-[10px] focus:outline-none focus:border-cf-text font-mono text-cf-text cursor-pointer"
+                data-testid="constraint-category-select"
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* List of Constraints */}
+          <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-cf-line" data-testid="constraints-list">
+            {constraintsLoading ? (
+              <div className="p-4 text-center text-xs text-cf-mute">
+                Loading library...
+              </div>
+            ) : filteredConstraints.length === 0 ? (
+              <div className="p-4 text-center text-xs text-cf-mute">
+                No rules found
+              </div>
+            ) : (
+              filteredConstraints.map((c) => (
+                <div
+                  key={c.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application/cf-constraint", c.text);
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
+                  className="p-3 hover:bg-cf-elev group cursor-grab active:cursor-grabbing transition-colors flex items-start gap-2.5 relative border-b border-cf-line last:border-b-0"
+                  title="Drag this rule onto an 'AI Coding Rules' node"
+                  data-testid={`constraint-item-${c.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[9px] uppercase tracking-widest text-cf-mute px-1 bg-cf-line font-bold">
+                        {c.category}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-cf-text leading-relaxed select-none break-words">
+                      {c.text}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteConstraint(c.id)}
+                    className="opacity-0 group-hover:opacity-100 hover:text-red-400 text-cf-mute transition-opacity shrink-0 self-start mt-0.5 p-0.5"
+                    title="Delete from library"
+                    data-testid={`delete-constraint-${c.id}`}
+                  >
+                    <Trash size={11} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Add Constraint Form */}
+          <form
+            onSubmit={handleAddConstraint}
+            className="p-3 border-t border-cf-line bg-cf-surface shrink-0 space-y-2.5"
+            data-testid="add-constraint-form"
+          >
+            <div className="overline">▸ ADD RULE TO LIBRARY</div>
+            <textarea
+              required
+              rows={2}
+              placeholder="e.g. Always use standard error values..."
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              className="w-full bg-cf-bg border border-cf-line px-2 py-1.5 text-[11px] focus:outline-none focus:border-cf-text font-mono resize-none text-cf-text"
+              data-testid="new-constraint-text"
+            />
+
+            <div className="flex gap-2">
+              <input
+                required
+                type="text"
+                placeholder="Category (e.g. React)"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="flex-1 bg-cf-bg border border-cf-line px-2 py-1 text-[10px] focus:outline-none focus:border-cf-text font-mono text-cf-text"
+                data-testid="new-constraint-category"
+              />
+              <button
+                type="submit"
+                className="cf-btn bg-cf-text text-cf-bg px-2.5 py-1 text-[10px] font-bold hover:bg-zinc-200 transition-colors shrink-0 flex items-center gap-1"
+                data-testid="submit-new-constraint"
+              >
+                <Plus size={10} weight="bold" /> ADD
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
