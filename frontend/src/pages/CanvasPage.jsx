@@ -852,6 +852,7 @@ function CanvasInner() {
             onDelete={deleteNode}
             onClose={() => setSelectedId(null)}
             aiAssistRef={aiAssistRef}
+            project={project}
           />
         )}
         {rightPanel === "validation" && (

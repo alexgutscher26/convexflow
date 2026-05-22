@@ -21,7 +21,7 @@ const AI_ACTIONS = [
   { key: "test_plan", label: "Generate test plan" },
 ];
 
-export default function Inspector({ node, onChange, onDelete, onClose, aiAssistRef }) {
+export default function Inspector({ node, onChange, onDelete, onClose, aiAssistRef, project }) {
   const [draft, setDraft] = useState(node || null);
   const [mode, setMode] = useState("edit"); // edit | preview
   const [aiLoading, setAiLoading] = useState(false);
@@ -306,7 +306,7 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
                 />
               ) : (
                 <div className="bg-cf-bg border border-cf-line p-3 cf-prose max-h-64 overflow-y-auto">
-                  <SafeMarkdown>{current.content || "_(empty)_"}</SafeMarkdown>
+                  <SafeMarkdown projectId={projectId} fileTree={project?.repository?.file_tree}>{current.content || "_(empty)_"}</SafeMarkdown>
                 </div>
               )}
             </div>
@@ -361,7 +361,7 @@ export default function Inspector({ node, onChange, onDelete, onClose, aiAssistR
               />
             ) : (
               <div className="bg-cf-bg border border-cf-line p-3 cf-prose max-h-96 overflow-y-auto">
-                <SafeMarkdown>{current.content || "_(empty)_"}</SafeMarkdown>
+                <SafeMarkdown projectId={projectId} fileTree={project?.repository?.file_tree}>{current.content || "_(empty)_"}</SafeMarkdown>
               </div>
             )}
           </div>
