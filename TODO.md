@@ -73,11 +73,11 @@
 
 - [ ] **Real-time collaboration (WebSockets)** — multiple users editing the same canvas should see live cursors and changes; evaluate Socket.io or Liveblocks
 - [ ] **Team & workspace support** — projects are `owner_id`-only; add teams with roles (Owner, Editor, Viewer) and project sharing
-- [ ] **Comment / annotation system** — threaded comments pinned to specific nodes, surfaced in a sidebar feed
+- [ ] **PRD comment threads** — attach threaded comments to individual nodes so engineering reviews happen inside Archon instead of Notion or Slack, keeping feedback connected to the spec
 - [ ] **Node version history** — store diffs on every node update in a `node_history` collection for view/restore
 - [ ] **Project duplication** — "Duplicate Project" deep-copies all nodes, edges, and snapshots with new IDs
 - [ ] **Project archiving** — archive completed projects without deleting; hidden from main dashboard by default
-- [ ] **Shareable read-only project links** — signed URL allowing anyone to view (not edit) a project graph
+- [ ] **Shareable canvas link** — generate a read-only public URL for a project canvas so anyone with the link can view the graph and copy generated prompts without needing an account
 - [ ] **Export to additional formats** — add PDF, HTML, Notion, and Confluence page export alongside existing `markdown/json/agent_pack/cursorrules`
 - [ ] **Import graph from JSON/Markdown** — reverse of export; seed a project from an exported JSON or structured markdown
 - [ ] **Webhook notifications** — configurable webhooks (Slack, Discord, custom URL) on project events (snapshot created, AI prompt generated, etc.)
@@ -85,6 +85,8 @@
 - [ ] **Project tags and filtering** — tagging with filter/search on the Dashboard
 - [ ] **AI chat panel** — side-drawer chatbot with full graph context for Q&A without generating new nodes
 - [ ] **Graph diff view** — compare two snapshots side-by-side showing added/removed/changed nodes and edges
+- [ ] **Node approval workflow** — mark individual nodes as Draft / In Review / Approved; only approved nodes are included in PRD and prompt generation
+- [ ] **Linear / Jira import** — paste a ticket URL and auto-create a Feature Scope node and User Stories node populated from the ticket description and acceptance criteria fields
 
 ### AI & LLM Enhancements
 
@@ -98,16 +100,29 @@
 - [ ] **Hallucination guard** — validate AI output for plausible file paths and technology names before returning to the frontend
 - [ ] **Prompt caching for identical contexts** — cache AI responses for the same project graph hash to avoid duplicate API calls
 - [ ] **Support OpenAI-compatible local LLM providers** — extend `LocalLlmChat` to support auth headers, model listing, and a connection-test endpoint
+- [ ] **Architecture pattern auto-detection** — beyond frameworks, detect codebase patterns (e.g. "App Router with Route Groups," "Barrel exports in `/components`," "Repository pattern in `/src/repositories`") and inject these as architecture hints into prompt generation
+- [ ] **Architecture review mode** — evaluate pasted user/AI-generated code snippets against the canvas graph and report rules violations, incorrect file paths, or unmet acceptance criteria
+- [ ] **Conflict detection** — scan the canvas for logical inconsistencies between nodes (e.g., an API Contract referencing a database table not defined in a Database Schema node)
+- [ ] **Auto-summarize README** — read the full README on repository connect and generate a structured summary (status, tech stack, TODOs) to populate the Product Overview node
+- [ ] **Prompt quality score** — score generated prompts on 5 dimensions (specificity, file grounding, constraint clarity, expected output, anti-hallucination) and give improvement suggestions
 
 ### GitHub Integration Improvements
 
 - [ ] **GitHub OAuth app integration** — replace PAT-based auth with GitHub OAuth flow for a frictionless and more secure experience
 - [ ] **Automatic re-scan on push** — GitHub webhook receiver to trigger `scan_repo` automatically on every push to the tracked branch
-- [ ] **File content preview** — clicking a file reference in a node fetches and displays file content in a side panel
+- [x] **File content preview** — clicking a file reference in a node fetches and displays file content in a side panel (or Inspector preview panel)
 - [ ] **Pull request context node** — fetch open PRs and their descriptions as a new node type
 - [ ] **GitHub Issues import** — fetch GitHub issues (open/closed) and map them to requirement nodes
 - [ ] **Branch comparison** — compare the file tree between two branches in repository settings
 - [ ] **Commit history timeline** — show recent commits with author, message, and changed files as a canvas-overlay timeline
+- [ ] **Stale reference detection** — after each repo re-scan, flag any node that references a file path that no longer exists in the tree. Show a yellow warning badge on the node
+
+### Export & Integrations
+
+- [ ] **.cursorrules export** — generate a properly formatted `.cursorrules` file from the AI Coding Rules and Technical Architecture nodes to enforce project guidelines
+- [ ] **AGENTS.md / CLAUDE.md export** — generate standard agent instructions files that AI tools (like Claude Code) read automatically from the repo root
+- [ ] **Notion sync** — one-way push of the generated Markdown PRD to a Notion page to keep team specs synchronized
+- [ ] **GitHub PR description generator** — generate structured PR descriptions (what changed, why, what was tested) given a Feature Scope node and its linked nodes
 
 ### Dashboard & Discovery
 
