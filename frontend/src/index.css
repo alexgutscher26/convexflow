@@ -211,3 +211,93 @@ body {
     outline: 1px solid #fafafa;
     outline-offset: 2px;
 }
+
+/* --- Swiss Brutalist Tech Utilities --- */
+
+.crt-scanlines {
+    position: relative;
+    overflow: hidden;
+}
+.crt-scanlines::after {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(10, 10, 11, 0) 50%, rgba(10, 10, 11, 0.15) 50%);
+    background-size: 100% 4px;
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+/* Stark instant hover utility for Brutalist buttons/links */
+.btn-stark {
+    background: #0a0a0b;
+    color: #fafafa;
+    border: 1px solid #27272a;
+    transition: none; /* instant shift */
+}
+.btn-stark:hover {
+    background: #fafafa;
+    color: #0a0a0b;
+    border-color: #fafafa;
+}
+
+.btn-stark-active {
+    background: #fafafa;
+    color: #0a0a0b;
+    border-color: #fafafa;
+    transition: none;
+}
+
+/* Technical asymmetric grid lines */
+.tech-grid-cols {
+    display: grid;
+    grid-template-columns: 42% 58%;
+}
+
+@media (max-width: 1024px) {
+    .tech-grid-cols {
+        grid-template-columns: 100%;
+    }
+}
+
+/* Animations */
+@keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+.animate-cursor-blink {
+    animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes technical-glitch {
+    0% { transform: translate(0) }
+    20% { transform: translate(-1px, 1px) }
+    40% { transform: translate(-1px, -1px) }
+    60% { transform: translate(1px, 1px) }
+    80% { transform: translate(1px, -1px) }
+    100% { transform: translate(0) }
+}
+.animate-tech-glitch:hover {
+    animation: technical-glitch 0.25s linear infinite;
+}
+
+@keyframes border-pulse {
+    0%, 100% { border-color: #27272a; }
+    50% { border-color: #f97316; }
+}
+.animate-border-pulse {
+    animation: border-pulse 2s infinite;
+}
+
+/* Custom terminal output line spacing */
+.terminal-line {
+    border-left: 2px solid #27272a;
+    padding-left: 8px;
+    margin-bottom: 4px;
+}
+.terminal-line.active {
+    border-left-color: #f97316;
+}
+
